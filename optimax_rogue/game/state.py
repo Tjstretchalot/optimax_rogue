@@ -66,13 +66,13 @@ class GameState(ser.Serializable):
     def from_prims(cls, prims: bytes) -> 'GameState':
         arr = io.BytesIO(prims)
         arr.seek(0, 0)
-        wlen = int.from_bytes(arr.read(8), 'big', False)
+        wlen = int.from_bytes(arr.read(8), 'big', signed=False)
         world = ser.deserialize(arr.read(wlen))
 
-        nents = int.from_bytes(arr.read(4), 'big', False)
+        nents = int.from_bytes(arr.read(4), 'big', signed=False)
         entities = []
         for _ in range(nents):
-            elen = int.from_bytes(arr.read(4), 'big', False)
+            elen = int.from_bytes(arr.read(4), 'big', signed=False)
             ent = ser.deserialize(arr.read(elen))
             entities.append(ent)
 

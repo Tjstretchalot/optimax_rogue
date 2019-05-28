@@ -47,15 +47,14 @@ class JsonSerializer(Serializer):
 
     def serialize(self, val: typing.Any) -> bytes:
         """Serializes the value to json format"""
-        arr = io.BytesIO()
-        json.dump(val, arr)
-        return arr.getvalue()
+
+        print(f'serialize {type(val)}')
+        return json.dumps(val).encode(encoding='ASCII', errors='strict')
 
     def deserialize(self, serd: bytes) -> typing.Any:
         """Deserializes the value from json format"""
-        arr = io.BytesIO(serd)
-        arr.seek(0, 0)
-        return json.load(arr)
+
+        return json.loads(serd.decode(encoding='ASCII', errors='strict'))
 
 class Serializable:
     """This is the base class for anything that can be serialized.
@@ -96,7 +95,7 @@ def serialize(obj: Serializable) -> bytes:
         return SERIALIZER.serialize({'iden': obj.identifier(), 'prims': obj.to_prims()})
 
     serd = obj.to_prims()
-    serd_b64 = base64.a85encode(serd)
+    serd_b64 = base64.a85encode(serd).decode('ASCII', 'strict')
     return SERIALIZER.serialize({'iden': obj.identifier(), 'prims': serd_b64})
 
 def deserialize(serd: bytes) -> Serializable:
@@ -107,6 +106,6 @@ def deserialize(serd: bytes) -> Serializable:
     if SERIALIZER_SUPPORTS_BYTES or not typ.has_custom_serializer():
         return typ.from_prims(serd['prims'])
 
-    serd_b64 = serd['prims']
+    serd_b64 = serd['prims'].encode('ASCII', 'strict')
     serd_v = base64.a85decode(serd_b64)
     return typ.from_prims(serd_v)

@@ -99,7 +99,7 @@ class World(ser.Serializable):
         """Serializes the world into bytes"""
         arr = io.BytesIO()
         arr.write(len(self.dungeons).to_bytes(4, byteorder='big', signed=False))
-        for depth, dung in enumerate(self.dungeons):
+        for depth, dung in self.dungeons.items():
             serd = dung.to_prims()
             arr.write(depth.to_bytes(4, byteorder='big', signed=False))
             arr.write(len(serd).to_bytes(8, byteorder='big', signed=False))
@@ -111,11 +111,11 @@ class World(ser.Serializable):
         """Deserializes the given serialized world"""
         arr = io.BytesIO(prims)
         arr.seek(0, 0)
-        num = int.from_bytes(arr.read(4), 'big', False)
+        num = int.from_bytes(arr.read(4), 'big', signed=False)
         dungeons = dict()
         for _ in range(num):
-            depth = int.from_bytes(arr.read(4), 'big', False)
-            size = int.from_bytes(arr.read(8), 'big', False)
+            depth = int.from_bytes(arr.read(4), 'big', signed=False)
+            size = int.from_bytes(arr.read(8), 'big', signed=False)
             lyr = Dungeon.from_prims(arr.read(size))
             dungeons[depth] = lyr
         return cls(dungeons)
