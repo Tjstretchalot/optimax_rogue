@@ -95,6 +95,8 @@ class EntityDeathUpdate(GameStateUpdate):
     def apply(self, game_state: GameState) -> None:
         game_state.remove_entity(game_state.iden_lookup[self.entity_iden])
 
+ser.register(EntityDeathUpdate)
+
 class EntityPositionUpdate(GameStateUpdate):
     """This update corresponds with an entity moving on the world
 
