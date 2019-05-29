@@ -24,9 +24,9 @@ recov = ser.deserialize(ser.serialize(MyClass()))
 
 import typing
 import json
-import io
 import inflection
 import base64
+
 
 class Serializer:
     """The interface that anything that is capable of serialization must
@@ -47,13 +47,10 @@ class JsonSerializer(Serializer):
 
     def serialize(self, val: typing.Any) -> bytes:
         """Serializes the value to json format"""
-
-        print(f'serialize {type(val)}')
         return json.dumps(val).encode(encoding='ASCII', errors='strict')
 
     def deserialize(self, serd: bytes) -> typing.Any:
         """Deserializes the value from json format"""
-
         return json.loads(serd.decode(encoding='ASCII', errors='strict'))
 
 class Serializable:
@@ -63,6 +60,20 @@ class Serializable:
     def to_prims(self) -> typing.Any:
         """Converts this object to a collection of primitives"""
         return self.__dict__.copy()
+
+    def to_prims_embeddable(self) -> str:
+        """Converts this object to a collection of primitives *except* bytes"""
+        res = self.to_prims()
+        if SERIALIZER_SUPPORTS_BYTES or not self.has_custom_serializer():
+            return res
+        return base64.a85encode(res).decode('ASCII', 'strict')
+
+    @classmethod
+    def from_prims_embeddable(cls, prims: str) -> 'Serializable':
+        """Converts the result of to_prims_embeddable back to an instance"""
+        if SERIALIZER_SUPPORTS_BYTES or not cls.has_custom_serializer():
+            return cls.from_prims(prims)
+        return cls.from_prims(base64.a85decode(prims))
 
     @classmethod
     def from_prims(cls, prims) -> 'Serializable':
@@ -81,31 +92,55 @@ class Serializable:
         from_prims must accept one"""
         return False
 
+class SerializableDict(Serializable):
+    """A light wrapper around a dict that acts much like a dictionary does
+    but supports the serializable syntax
+
+    Attributes:
+        attrs (dict): the real attributes
+    """
+    def __init__(self, attrs: dict = None):
+        self.attrs = attrs if attrs is not None else dict()
+
+    def __getitem__(self, attr_name):
+        return self.attrs[attr_name]
+
+    def __setitem__(self, attr_name, attr_val):
+        self.attrs[attr_name] = attr_val
+
+    def to_prims(self):
+        return self.attrs.copy()
+
+    @classmethod
+    def from_prims(cls, prims):
+        return cls(prims)
+
+    def __repr__(self):
+        return repr(self.attrs)
+
 IDENS_TO_TYPE = dict()
-SERIALIZER = JsonSerializer()
 SERIALIZER_SUPPORTS_BYTES = False
+SERIALIZER = JsonSerializer()
 
 def register(ser: type) -> None:
     """Registers the specified serializable such that it can be deserialized"""
     IDENS_TO_TYPE[ser.identifier()] = ser
 
+def serialize_embeddable(obj: Serializable) -> typing.Any:
+    """Serializes the given object in an embeddable way"""
+    return {'iden': obj.identifier(), 'prims': obj.to_prims_embeddable()}
+
 def serialize(obj: Serializable) -> bytes:
     """Serializes the given object"""
-    if SERIALIZER_SUPPORTS_BYTES or not obj.has_custom_serializer():
-        return SERIALIZER.serialize({'iden': obj.identifier(), 'prims': obj.to_prims()})
+    return SERIALIZER.serialize(serialize_embeddable(obj))
 
-    serd = obj.to_prims()
-    serd_b64 = base64.a85encode(serd).decode('ASCII', 'strict')
-    return SERIALIZER.serialize({'iden': obj.identifier(), 'prims': serd_b64})
+def deserialize_embeddable(serd: typing.Any) -> Serializable:
+    """Deserializes the result from serialize_embeddable() back into the object"""
+    typ = IDENS_TO_TYPE[serd['iden']]
+    return typ.from_prims_embeddable(serd['prims'])
 
 def deserialize(serd: bytes) -> Serializable:
     """Deserializes the result from serialize() back into the object"""
-    serd = SERIALIZER.deserialize(serd)
+    return deserialize_embeddable(SERIALIZER.deserialize(serd))
 
-    typ = IDENS_TO_TYPE[serd['iden']]
-    if SERIALIZER_SUPPORTS_BYTES or not typ.has_custom_serializer():
-        return typ.from_prims(serd['prims'])
-
-    serd_b64 = serd['prims'].encode('ASCII', 'strict')
-    serd_v = base64.a85decode(serd_b64)
-    return typ.from_prims(serd_v)
+register(SerializableDict)

@@ -78,6 +78,14 @@ class World(ser.Serializable):
     def __init__(self, dungeons: typing.Dict[int, Dungeon]) -> None:
         self.dungeons = dungeons
 
+    def shallow_copy_with_layers(self, *layers):
+        """Returns a shallow copy of this world which only has the specified
+        layers"""
+        result = dict()
+        for lyr in layers:
+            result[lyr] = self.dungeons[lyr]
+        return World(result)
+
     def get_at_depth(self, ind: int) -> Dungeon:
         """Gets the dungeon at the specified depth"""
         return self.dungeons[ind]

@@ -31,7 +31,7 @@ class Item(ser.Serializable):
         """Invoked when this object is dropped by the given entity"""
         pass
 
-    def usable(self, entity: 'Entity') -> bool:
+    def usable(self, entity: 'Entity') -> bool: # pylint: disable=unused-argument
         """Returns True if this item is usable, False otherwise"""
         return False
 

@@ -60,13 +60,14 @@ class Entity(ser.Serializable):
             'health': self.health,
             'base_max_health': self.base_max_health,
             'base_damage': self.base_damage,
-            'modifiers': [ser.serialize(mod) for mod in self.modifiers],
-            'items': dict((key, ser.serialize(val)) for key, val in self.items),
+            'base_armor': self.base_armor,
+            'modifiers': [ser.serialize_embeddable(mod) for mod in self.modifiers],
+            'items': dict((key, ser.serialize_embeddable(val)) for key, val in self.items),
         }
 
     @classmethod
     def from_prims(cls, prims: dict) -> 'Entity':
         cpprims = prims.copy()
-        cpprims['modifiers'] = [ser.deserialize(mod) for mod in prims['modifiers']]
-        cpprims['items'] = dict((key, ser.deserialize(val)) for key, val in prims['items'])
+        cpprims['modifiers'] = [ser.deserialize_embeddable(mod) for mod in prims['modifiers']]
+        cpprims['items'] = dict((key, ser.deserialize_embeddable(val)) for key, val in prims['items'])
         return cls(**cpprims)

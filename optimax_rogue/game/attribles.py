@@ -27,7 +27,7 @@ class MaxHealthAttrible(Attrible):
     def on_tick(self, game_state: GameState) -> None:
         result = self.parent.base_max_health
         for mod in self.parent.modifiers:
-            result += mod.get_flat_max_health()
+            result += mod.flat_max_health
         self.value = result
 
 class DamageAttrible(Attrible):
@@ -35,7 +35,7 @@ class DamageAttrible(Attrible):
     def on_tick(self, game_state: GameState) -> None:
         result = self.parent.base_damage
         for mod in self.parent.modifiers:
-            result += mod.get_flat_damage()
+            result += mod.flat_damage
         self.value = result
 
 class ArmorAttrible(Attrible):
@@ -43,5 +43,5 @@ class ArmorAttrible(Attrible):
     def on_tick(self, game_state: GameState) -> None:
         result = self.parent.base_armor
         for mod in self.parent.modifiers:
-            result += mod.get_flat_armor()
+            result += mod.flat_armor
         self.value = result
