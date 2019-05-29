@@ -46,6 +46,15 @@ class Entity(ser.Serializable):
         self.modifiers = modifiers
         self.items = items
 
+    def copy(self) -> 'Entity':
+        """Returns a deep copy of this entity"""
+        newent = type(self)(self.iden, self.depth, self.x, self.y, self.health,
+                            self.base_max_health, self.base_damage, self.base_armor, None, None)
+
+        newent.modifiers = [mod.copy(newent) for mod in self.modifiers]
+        newent.items = [(key, val.copy()) for key, val in self.items.items()]
+        return newent
+
     def on_tick(self, game_state: 'GameState') -> None:
         """Invoked every tick to update attribles"""
         self.max_health.on_tick(game_state)

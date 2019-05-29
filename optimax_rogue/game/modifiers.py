@@ -89,6 +89,10 @@ class Modifier(ser.Serializable):
         self.flat_max_health = flat_max_health
         self.flat_damage = flat_damage
 
+    def copy(self, ent: 'Entity') -> 'Modifier':
+        """Returns a copy of this modifier that is attached to the given entity"""
+        raise NotImplementedError
+
     def handles(self, event_name: str) -> bool:
         """Returns True if this handler handles the specified event, False otherwise
         """

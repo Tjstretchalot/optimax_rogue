@@ -10,6 +10,10 @@ class Item(ser.Serializable):
         """Returns a pretty name for this item"""
         raise NotImplementedError
 
+    def copy(self) -> 'Item':
+        """Deep copies this item"""
+        raise NotImplementedError
+
     @property
     def stack_size(self) -> int:
         """Returns the stack size for this item"""

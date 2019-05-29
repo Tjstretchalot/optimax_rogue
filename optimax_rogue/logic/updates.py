@@ -58,6 +58,65 @@ class EntityEventUpdate(GameStateUpdate):
 
 ser.register(EntityEventUpdate)
 
+class EntityCombatUpdate(GameStateUpdate):
+    """This update corresponds with combat between two entities on the world, which is
+    a special case of two entity event updates because the parent_attack and parent_defend
+    events are interleaved
+
+    Attributes:
+        attacker_iden (int): the id for the attacking entity
+        defender_iden (int): the id for the defending entity
+        attack_args (Serializable): the standard arguments to the parent_attack event
+        attack_prevals (tuple[Serializable]): the synchronization arguments / random component
+            for parent_attack for each modifier on the attacking ent
+        defend_args (Serializable): the standard arguments to the parent_defend event
+        defend_prevals (tuple[Serializable]): the synchronization arguments / random component
+            for parent_defend for each modifier on the defending ent
+    """
+    def __init__(self, order: int, attacker_iden: int, defender_iden: int,
+                 attack_args: ser.Serializable, attack_prevals: typing.Tuple[ser.Serializable],
+                 defend_args: ser.Serializable, defend_prevals: typing.Tuple[ser.Serializable]):
+        super().__init__(order)
+        self.attacker_iden = attacker_iden
+        self.defender_iden = defender_iden
+        self.attack_args = attack_args
+        self.attack_prevals = attack_prevals
+        self.defend_args = defend_args
+        self.defend_prevals = defend_prevals
+
+    def to_prims(self):
+        return {
+            'order': self.order,
+            'attacker_iden': self.attacker_iden, 'defender_iden': self.defender_iden,
+            'attack_args': ser.serialize_embeddable(self.attack_args),
+            'attack_prevals': tuple(ser.serialize_embeddable(prev) for prev in self.attack_prevals),
+            'defend_args': ser.serialize_embeddable(self.defend_args),
+            'defend_prevals': tuple(ser.serialize_embeddable(prev) for prev in self.defend_prevals),
+        }
+
+    @classmethod
+    def from_prims(cls, prims) -> 'EntityCombatUpdate':
+        return cls(prims['order'],
+            prims['attacker_iden'], prims['defender_iden'],
+            ser.deserialize_embeddable(prims['attack_args']),
+            tuple(ser.deserialize_embeddable(prev) for prev in prims['attack_prevals']),
+            ser.deserialize_embeddable(prims['defend_args']),
+            tuple(ser.deserialize_embeddable(prev) for prev in prims['defend_prevals']),
+        )
+
+    def apply(self, game_state: GameState) -> None:
+        attent: Entity = game_state.iden_lookup[self.attacker_iden]
+        defent: Entity = game_state.iden_lookup[self.defender_iden]
+        for ind, mod in enumerate(attent.modifiers):
+            mod.on_event('parent_attack', game_state, self.attack_args, self.attack_prevals[ind])
+        for ind, mod in enumerate(defent.modifiers):
+            mod.on_event('parent_defend', game_state, self.defend_args, self.defend_prevals[ind])
+        for ind, mod in enumerate(attent.modifiers):
+            mod.post_event('parent_attack', game_state, self.attack_args, self.attack_prevals[ind])
+        for ind, mod in enumerate(defent.modifiers):
+            mod.post_event('parent_defend', game_state, self.defend_args, self.defend_prevals[ind])
+
+
 class EntitySpawnUpdate(GameStateUpdate):
     """This update corresponds with an entity spawning on the world
 
