@@ -2,9 +2,12 @@
 import typing
 
 import optimax_rogue.networking.serializer as ser
+import optimax_rogue.game.world as world
 from optimax_rogue.game.state import GameState
 from optimax_rogue.game.entities import Entity
-from optimax_rogue.game.modifiers import Modifier
+from optimax_rogue.game.modifiers import (
+    Modifier, AttackEventArgs, DefendEventArgs, AttackResult, CombatFlag)
+
 
 class GameStateUpdate(ser.Serializable):
     """The interface for game state updates
@@ -16,6 +19,10 @@ class GameStateUpdate(ser.Serializable):
 
     def __init__(self, order: int) -> None:
         self.order = order
+
+    def relevant_for(self, game_state: GameState, depth: int) -> bool:
+        """Returns if this update is relevant to the given depth"""
+        raise NotImplementedError
 
     def apply(self, game_state: GameState) -> None:
         """Applies this update to the given game state"""
@@ -48,13 +55,16 @@ class EntityEventUpdate(GameStateUpdate):
             tuple(ser.deserialize_embeddable(prev) for prev in prims['prevals'])
         )
 
-    def apply(self, game_state: 'GameState'):
+    def apply(self, game_state: GameState):
         """Invokes this event on the modifiers of the entity"""
         ent: Entity = game_state.iden_lookup[self.entity_iden]
         for ind, mod in enumerate(ent.modifiers):
             mod.on_event(self.event_name, game_state, self.args, self.prevals[ind])
         for ind, mod in enumerate(ent.modifiers):
             mod.post_event(self.event_name, game_state, self.args, self.prevals[ind])
+
+    def relevant_for(self, game_state: GameState, depth: int) -> bool:
+        return game_state.iden_lookup[self.entity_iden].depth == depth
 
 ser.register(EntityEventUpdate)
 
@@ -66,56 +76,65 @@ class EntityCombatUpdate(GameStateUpdate):
     Attributes:
         attacker_iden (int): the id for the attacking entity
         defender_iden (int): the id for the defending entity
-        attack_args (Serializable): the standard arguments to the parent_attack event
+        og_damage (int): the original damage for the attack
+        tags (set[CombatFlag]): the original flags for the attack
         attack_prevals (tuple[Serializable]): the synchronization arguments / random component
             for parent_attack for each modifier on the attacking ent
-        defend_args (Serializable): the standard arguments to the parent_defend event
         defend_prevals (tuple[Serializable]): the synchronization arguments / random component
             for parent_defend for each modifier on the defending ent
     """
     def __init__(self, order: int, attacker_iden: int, defender_iden: int,
-                 attack_args: ser.Serializable, attack_prevals: typing.Tuple[ser.Serializable],
-                 defend_args: ser.Serializable, defend_prevals: typing.Tuple[ser.Serializable]):
+                 og_damage: int, tags: typing.Set[CombatFlag],
+                 attack_prevals: typing.Tuple[ser.Serializable],
+                 defend_prevals: typing.Tuple[ser.Serializable]):
         super().__init__(order)
         self.attacker_iden = attacker_iden
         self.defender_iden = defender_iden
-        self.attack_args = attack_args
+        self.og_damage = og_damage
+        self.tags = tags
         self.attack_prevals = attack_prevals
-        self.defend_args = defend_args
         self.defend_prevals = defend_prevals
 
     def to_prims(self):
         return {
             'order': self.order,
             'attacker_iden': self.attacker_iden, 'defender_iden': self.defender_iden,
-            'attack_args': ser.serialize_embeddable(self.attack_args),
+            'og_damage': self.og_damage,
+            'tags': tuple(self.tags),
             'attack_prevals': tuple(ser.serialize_embeddable(prev) for prev in self.attack_prevals),
-            'defend_args': ser.serialize_embeddable(self.defend_args),
             'defend_prevals': tuple(ser.serialize_embeddable(prev) for prev in self.defend_prevals),
         }
 
     @classmethod
     def from_prims(cls, prims) -> 'EntityCombatUpdate':
-        return cls(prims['order'],
-            prims['attacker_iden'], prims['defender_iden'],
-            ser.deserialize_embeddable(prims['attack_args']),
+        return cls(
+            prims['order'],
+            prims['attacker_iden'], prims['defender_iden'], prims['og_damage'], set(prims['tags']),
             tuple(ser.deserialize_embeddable(prev) for prev in prims['attack_prevals']),
-            ser.deserialize_embeddable(prims['defend_args']),
             tuple(ser.deserialize_embeddable(prev) for prev in prims['defend_prevals']),
         )
 
     def apply(self, game_state: GameState) -> None:
         attent: Entity = game_state.iden_lookup[self.attacker_iden]
         defent: Entity = game_state.iden_lookup[self.defender_iden]
+        ares = AttackResult(self.og_damage, self.tags.copy())
+        attack_args = AttackEventArgs(self.defender_iden, ares)
+        defend_args = DefendEventArgs(self.attacker_iden, ares)
         for ind, mod in enumerate(attent.modifiers):
-            mod.on_event('parent_attack', game_state, self.attack_args, self.attack_prevals[ind])
+            mod.on_event('parent_attack', game_state, attack_args, self.attack_prevals[ind])
         for ind, mod in enumerate(defent.modifiers):
-            mod.on_event('parent_defend', game_state, self.defend_args, self.defend_prevals[ind])
+            mod.on_event('parent_defend', game_state, defend_args, self.defend_prevals[ind])
         for ind, mod in enumerate(attent.modifiers):
-            mod.post_event('parent_attack', game_state, self.attack_args, self.attack_prevals[ind])
+            mod.post_event('parent_attack', game_state, attack_args, self.attack_prevals[ind])
         for ind, mod in enumerate(defent.modifiers):
-            mod.post_event('parent_defend', game_state, self.defend_args, self.defend_prevals[ind])
+            mod.post_event('parent_defend', game_state, defend_args, self.defend_prevals[ind])
 
+        if ares.damage > 0:
+            defent.health -= ares.damage
+
+    def relevant_for(self, game_state: GameState, depth: int) -> bool:
+        return (game_state.iden_lookup[self.attacker_iden].depth == depth
+                or game_state.iden_lookup[self.defender_iden].depth == depth)
 
 class EntitySpawnUpdate(GameStateUpdate):
     """This update corresponds with an entity spawning on the world
@@ -138,6 +157,9 @@ class EntitySpawnUpdate(GameStateUpdate):
     def apply(self, game_state: GameState) -> None:
         game_state.add_entity(self.entity)
 
+    def relevant_for(self, game_state: GameState, depth: int) -> bool:
+        return self.entity.depth == depth
+
 ser.register(EntitySpawnUpdate)
 
 class EntityDeathUpdate(GameStateUpdate):
@@ -154,6 +176,9 @@ class EntityDeathUpdate(GameStateUpdate):
     def apply(self, game_state: GameState) -> None:
         game_state.remove_entity(game_state.iden_lookup[self.entity_iden])
 
+    def relevant_for(self, game_state: GameState, depth: int) -> bool:
+        return game_state.iden_lookup[self.entity_iden].depth == depth
+
 ser.register(EntityDeathUpdate)
 
 class EntityPositionUpdate(GameStateUpdate):
@@ -162,14 +187,17 @@ class EntityPositionUpdate(GameStateUpdate):
     Attributes:
         entity_iden (int): the identifier for the entity which moved
         depth (int): the new depth for the entity
+        depth_changed (bool): flag if the depth changed for the entity
         posx (int): the new x-coordinate for the entity
         posy (int): the new y-coordinate for the entity
     """
 
-    def __init__(self, order: int, entity_iden: int, depth: int, posx: int, posy: int) -> None:
+    def __init__(self, order: int, entity_iden: int, depth: int,
+                 depth_changed: bool, posx: int, posy: int) -> None:
         super().__init__(order)
         self.entity_iden = entity_iden
         self.depth = depth
+        self.depth_changed = depth_changed
         self.posx = posx
         self.posy = posy
 
@@ -178,6 +206,9 @@ class EntityPositionUpdate(GameStateUpdate):
         entity.depth = self.depth
         entity.x = self.posx
         entity.y = self.posy
+
+    def relevant_for(self, game_state: GameState, depth: int) -> bool:
+        return depth in (game_state.iden_lookup[self.entity_iden].depth, self.depth)
 
 ser.register(EntityPositionUpdate)
 
@@ -207,6 +238,10 @@ class EntityHealthUpdate(GameStateUpdate):
     def apply(self, game_state: GameState):
         game_state.iden_lookup[self.entity_iden].health += self.amount
 
+    def relevant_for(self, game_state: GameState, depth: int) -> bool:
+        return depth in (game_state.iden_lookup[self.entity_iden].depth,
+                         game_state.iden_lookup[self.source_iden].depth)
+
 ser.register(EntityHealthUpdate)
 
 class EntityModifierAdded(GameStateUpdate):
@@ -235,6 +270,10 @@ class EntityModifierAdded(GameStateUpdate):
         ent: Entity = game_state.iden_lookup[self.entity_iden]
         ent.modifiers.append(self.modifier)
 
+    def relevant_for(self, game_state: GameState, depth: int) -> bool:
+        return depth in (game_state.iden_lookup[self.entity_iden].depth,)
+
+
 ser.register(EntityModifierAdded)
 
 class EntityModifierRemoved(GameStateUpdate):
@@ -253,4 +292,36 @@ class EntityModifierRemoved(GameStateUpdate):
         ent: Entity = game_state.iden_lookup[self.entity_iden]
         ent.modifiers.pop(self.modifier_index)
 
+    def relevant_for(self, game_state: GameState, depth: int) -> bool:
+        return depth in (game_state.iden_lookup[self.entity_iden].depth,)
+
 ser.register(EntityModifierRemoved)
+
+class DungeonCreatedUpdate(GameStateUpdate):
+    """Called when a dungeon is created
+
+    Attributes:
+        depth (int): the depth of the dungeon
+        dungeon (Dungeon): the actual dungeon
+    """
+    def __init__(self, order: int, depth: int, dungeon: world.Dungeon) -> None:
+        super().__init__(order)
+        self.depth = depth
+        self.dungeon = dungeon
+
+    def apply(self, game_state: GameState) -> None:
+        game_state.world.set_at_depth(self.depth, self.dungeon)
+
+    def relevant_for(self, game_state: GameState, depth: int) -> bool:
+        return depth == self.depth
+
+    def to_prims(self):
+        return {'order': self.order, 'depth': self.depth,
+                'dungeon': ser.serialize_embeddable(self.dungeon)}
+
+    @classmethod
+    def from_prims(cls, prims):
+        return cls(prims['order'], prims['depth'],
+                   ser.deserialize_embeddable(prims['dungeon']))
+
+ser.register(DungeonCreatedUpdate)

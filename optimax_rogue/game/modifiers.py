@@ -2,6 +2,14 @@
 
 import optimax_rogue.networking.serializer as ser
 import typing
+import enum
+
+class CombatFlag(enum.IntEnum):
+    """Describes the tags that can go on an attack."""
+    Block = 1 # Defender stay'd
+    Ambush = 2 # Defender moved into a spot that the attacker attacked
+    Flee = 3 # Defender moved from a spot that the attacker attacked
+    Parry = 4 # Defender attacked the attacker!
 
 class AttackResult(ser.Serializable):
     """Describes the result from a particular attack. May be modified
@@ -9,14 +17,24 @@ class AttackResult(ser.Serializable):
 
     Attributes:
         damage (int): how much damage is applied to the entity
-        tags (set[str]): a set of tags that are on this attack, i.e. 'blocked'
+        tags (set[CombatFlag]): a set of tags that are on this attack, i.e. 'blocked'
+
+    Default tags:
+
     """
-    def __init__(self, damage: int, tags: typing.Set[str]):
+    def __init__(self, damage: int, tags: typing.Set[CombatFlag]):
         self.damage = damage
         self.tags = set(tags if tags is not None else [])
 
     def to_prims(self):
-        return {'damage': self.damage, 'tags': list(self.tags)}
+        return {'damage': self.damage, 'tags': [tag.value for tag in self.tags]}
+
+    @classmethod
+    def from_prims(cls, prims) -> 'AttackResult':
+        return cls(
+            prims['damage'],
+            [CombatFlag(tag) for tag in prims['tags']]
+        )
 
 ser.register(AttackResult)
 
@@ -94,11 +112,14 @@ class Modifier(ser.Serializable):
         raise NotImplementedError
 
     def handles(self, event_name: str) -> bool:
-        """Returns True if this handler handles the specified event, False otherwise
+        """Returns True if this handler handles the specified event, False otherwise.
+        Returning False *may* result in the pre/on/post event for that event not being
+        called, but it might not. The implementation must ensure it does not make a difference
         """
         raise NotImplementedError
 
-    def pre_event(self, event_name: str, game_state: 'GameState', args: ser.Serializable) -> ser.Serializable:
+    def pre_event(self, event_name: str, game_state: 'GameState',
+                  args: ser.Serializable) -> ser.Serializable:
         """Generates the state that is necessary for this event handler to
         handle the given event. This function is only invoked on the server,
         but the result is passed to the server and clients.

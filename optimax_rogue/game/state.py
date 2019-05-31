@@ -43,9 +43,13 @@ class GameState(ser.Serializable):
         new_entities = [ent for ent in self.entities if ent.depth == entity.depth]
         return GameState(False, self.player_1_iden, self.player_2_iden, new_world, new_entities)
 
+    def view_spec(self) -> 'GameState':
+        return GameState(False, self.player_1_iden, self.player_2_iden, self.world, self.entities)
+
     def move_entity(self, entity, newdepth, newx, newy):
         """Convenience function for moving an existing entity"""
         del self.pos_lookup[(newdepth, entity.x, entity.y)]
+        entity.depth = newdepth
         entity.x = newx
         entity.y = newy
         self.pos_lookup[(newdepth, newx, newy)] = entity

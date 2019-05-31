@@ -134,9 +134,13 @@ def serialize(obj: Serializable) -> bytes:
     """Serializes the given object"""
     return SERIALIZER.serialize(serialize_embeddable(obj))
 
+def peek_type_embeddable(serd: typing.Any) -> typing.Type:
+    """Returns the type of the serialized embeddable"""
+    return IDENS_TO_TYPE[serd['iden']]
+
 def deserialize_embeddable(serd: typing.Any) -> Serializable:
     """Deserializes the result from serialize_embeddable() back into the object"""
-    typ = IDENS_TO_TYPE[serd['iden']]
+    typ = peek_type_embeddable(serd)
     return typ.from_prims_embeddable(serd['prims'])
 
 def deserialize(serd: bytes) -> Serializable:
