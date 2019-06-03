@@ -47,7 +47,7 @@ def main(stdscr):
 
     view = TextMapView()
 
-    view.update(stdscr, game_state)
+    view.update(stdscr, game_state, logger)
 
     curses.curs_set(0) # pylint: disable=no-member
 
@@ -58,7 +58,7 @@ def main(stdscr):
         while True:
             ticker()
             if need_update:
-                view.update(stdscr, game_state)
+                view.update(stdscr, game_state, logger)
                 need_update = False
                 stdscr.refresh()
 

@@ -20,6 +20,8 @@ def main():
     parser.add_argument('-p', '--port', type=int, help='specify port to listen on')
     parser.add_argument('-l', '--log', type=str, help='if specified, rerout stdout and stderr to this file')
     parser.add_argument('-t', '--tickrate', type=float, help='minimum seconds between ticks', default=1.0)
+    parser.add_argument('--width', type=int, help='width of map', default=60)
+    parser.add_argument('--height', type=int, help='height of map', default=10)
     args = parser.parse_args()
 
     if args.log:
@@ -30,7 +32,9 @@ def main():
                 _run(args)
             except:
                 traceback.print_exc(file=fh)
+                fh.flush()
                 raise
+            fh.flush()
     else:
         _run(args)
 
@@ -46,7 +50,7 @@ def _run(args):
     host = args.host or 'localhost'
     port = args.port or 0
 
-    dgen = EmptyDungeonGenerator(5, 5)
+    dgen = EmptyDungeonGenerator(args.width, args.height)
     ticker = Ticker(0.016)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listen_sock:

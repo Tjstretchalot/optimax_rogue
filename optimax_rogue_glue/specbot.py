@@ -21,7 +21,7 @@ def main():
          '--log', 'server_log.txt'],
         creationflags=subprocess.CREATE_NEW_CONSOLE)
 
-    time.sleep(1)
+    time.sleep(2)
 
     subprocess.Popen(
         ['python', '-m', 'optimax_rogue_bots.main', 'localhost', str(args.port), args.bot1, secret1,

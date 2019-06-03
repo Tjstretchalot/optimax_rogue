@@ -122,3 +122,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# log files
+bot1_log.txt
+bot2_log.txt
+log.txt
+server_log.txt

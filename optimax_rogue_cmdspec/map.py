@@ -43,13 +43,12 @@ class TextMapView:
         self.prompt_y = 0
         self.prompt = ['Press h for help']
 
-    def update(self, stdscr, game_state: state.GameState):
+    def update(self, stdscr, game_state: state.GameState, logger):
         """Draws this view onto the screen starting at the top-left row/column
         """
         if self.dungeon is None or self.dungeon not in game_state.world.dungeons:
             self.dungeon = list(game_state.world.dungeons.keys())[0]
 
-        colors = curses.has_colors() # pylint: disable=no-member
         maxrow, maxcol = stdscr.getmaxyx()
 
         dung: world.Dungeon = game_state.world.dungeons[self.dungeon]
@@ -58,10 +57,15 @@ class TextMapView:
             for row in range(min(dung.tiles.shape[1], maxrow)):
                 stdscr.addstr(row, col, *TILES[dung.tiles[col, row]])
 
-        if maxcol > dung.tiles.shape[0]:
-            spacing = ' ' * (maxcol - dung.tiles.shape[0])
+        if maxcol > dung.tiles.shape[0] - 1:
+            spacing = ' ' * (maxcol - dung.tiles.shape[0] - 1)
             for row in range(min(dung.tiles.shape[1], maxrow)):
-                stdscr.addstr(row, dung.tiles.shape[0], spacing)
+                try:
+                    stdscr.addstr(row, dung.tiles.shape[0], spacing)
+                except:
+                    logger.error('spacing=%s, row=%s, maxrow=%s, maxcol=%s, reals=%s',
+                                 len(spacing), row, maxrow, maxcol, dung.tiles.shape, exc_info=1)
+                    raise
 
         for ent in game_state.entities:
             if ent.depth != self.dungeon:
