@@ -5,15 +5,26 @@ import curses
 import time
 import logging
 import typing
+import argparse
+import socket
+import traceback
 from optimax_rogue.utils.ticker import Ticker
 import optimax_rogue.game.world as world
-from optimax_rogue.logic.worldgen import EmptyDungeonGenerator
 import optimax_rogue.game.state as state
 import optimax_rogue.game.entities as entities
+import optimax_rogue.server.pregame as pregame
+import optimax_rogue.networking.shared as nshared
+import optimax_rogue.logic.worldgen as worldgen
+import optimax_rogue.networking.packets as packets
 from optimax_rogue_cmdspec.map import TextMapView
+from optimax_rogue.logic.updater import UpdateResult
 
 def main(stdscr):
     """Invoked when this file is invoked"""
+    parser = argparse.ArgumentParser(description='Spectate a game of OptiMAX Rogue')
+    parser.add_argument('ip', type=str, help='the ip to connect to')
+    parser.add_argument('port', type=int, help='the port to connect on')
+    args = parser.parse_args()
     logger = logging.Logger(__name__)
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -24,11 +35,111 @@ def main(stdscr):
 
     logger.addHandler(fh)
 
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((args.ip, args.port))
+    sock.setblocking(False)
+
+    conn = nshared.Connection(sock, args.ip)
+    game_state = init_empty_map()
 
     stdscr.clear()
     stdscr.nodelay(True)
 
-    dung: world.Dungeon = EmptyDungeonGenerator(124, 24).spawn_dungeon(0)
+    view = TextMapView()
+
+    view.update(stdscr, game_state)
+
+    curses.curs_set(0) # pylint: disable=no-member
+
+    ticker = Ticker(0.016)
+    need_update = False
+    in_update = False
+    try:
+        while True:
+            ticker()
+            if need_update:
+                view.update(stdscr, game_state)
+                need_update = False
+                stdscr.refresh()
+
+            try:
+                ch = stdscr.getch()
+                if ch != -1:
+                    finish, refresh = handle_char(game_state, view, logger, ch)
+                    if finish:
+                        break
+                    need_update = need_update or refresh
+            except curses.error: # pylint: disable=no-member
+                pass
+
+            conn.update()
+            pack = conn.read()
+            if not pack:
+                if conn.disconnected():
+                    logger.info('connection ended abruptly')
+                    break
+                continue
+            need_update = True
+            if not in_update:
+                if isinstance(pack, packets.SyncPacket):
+                    pack: packets.SyncPacket
+                    game_state = pack.game_state
+                    game_state.on_tick()
+                    need_update = True
+                    continue
+                if not isinstance(pack, packets.TickStartPacket):
+                    sock.shutdown(socket.SHUT_RDWR)
+                    raise ValueError(f'bad packet: {pack} (type={type(pack)}) (expected TickStartPacket)')
+                in_update = True
+                continue
+            if isinstance(pack, packets.TickEndPacket):
+                pack: packets.TickEndPacket
+                if pack.result != UpdateResult.InProgress:
+                    sock.shutdown(socket.SHUT_RDWR)
+                    logger.info('game ended with result %s', str(pack.result))
+                    break
+                in_update = False
+                game_state.on_tick()
+                if view.prompt and view.prompt[0].startswith('Selected'):
+                    set_entity_prompt(game_state, view, logger)
+                    need_update = True
+                continue
+            if isinstance(pack, packets.SyncPacket):
+                pack: packets.SyncPacket
+                game_state = pack.game_state
+                game_state.on_tick()
+                continue
+            game_state = handle_packet(game_state, pack)
+            if game_state is None:
+                logger.info('game ended irregularly')
+                sock.shutdown(socket.SHUT_RDWR)
+                break
+    except:
+        logger.error('Fatal error', exc_info=1)
+        raise
+
+
+def handle_packet(game_state: state.GameState, pack: packets.Packet) -> state.GameState:
+    """Handles the given packet and returns the new state, or none if the game ended"""
+    if isinstance(pack, packets.SyncPacket):
+        pack: packets.SyncPacket
+        return pack.game_state
+    if isinstance(pack, packets.MovePacket):
+        pack: packets.MovePacket
+        ent = game_state.iden_lookup[pack.entity_iden]
+        game_state.move_entity(ent, pack.newdepth, pack.newx, pack.newy)
+        return game_state
+    if isinstance(pack, packets.UpdatePacket):
+        pack: packets.UpdatePacket
+        pack.update.apply(game_state)
+        return game_state
+    if isinstance(pack, pregame.LobbyChangePacket):
+        return
+    raise ValueError(f'unknown packet: {pack} (type={type(pack)})')
+
+
+def init_empty_map() -> state.GameState:
+    dung: world.Dungeon = worldgen.EmptyDungeonGenerator(80, 24).spawn_dungeon(0)
 
     p1x, p1y = dung.get_random_unblocked()
     p2x, p2y = dung.get_random_unblocked()
@@ -40,31 +151,7 @@ def main(stdscr):
 
     game_state = state.GameState(True, 1, 2, world.World({0: dung}), [ent1, ent2])
     game_state.on_tick()
-    view = TextMapView()
-
-    view.update(stdscr, game_state)
-
-    curses.curs_set(0) # pylint: disable=no-member
-
-    now = time.time()
-    ticker = Ticker(0.016)
-    need_update = False
-    while True:
-        ticker()
-        if need_update:
-            view.update(stdscr, game_state)
-            need_update = False
-        stdscr.refresh()
-
-        try:
-            ch = stdscr.getch()
-            if ch != -1:
-                finish, refresh = handle_char(game_state, view, logger, ch)
-                if finish:
-                    break
-                need_update = need_update or refresh
-        except curses.error: # pylint: disable=no-member
-            pass
+    return game_state
 
 def set_help_prompt(game_state: state.GameState, view: TextMapView, logger: logging.Logger):
     """Sets the prompt to the help prompt"""
@@ -104,7 +191,21 @@ def handle_char(game_state: state.GameState, view: TextMapView, logger: logging.
     logger.debug('got char %s (int: %s)', ch, int(ch))
 
     need_update = False
-    if ch == ord('o'):
+    if ch == ord('1'):
+        view.highlighted_id = game_state.player_1_iden
+        depth = game_state.iden_lookup[view.highlighted_id].depth
+        view.dungeon = depth
+        logger.debug('moved to depth %s', depth)
+        set_entity_prompt(game_state, view, logger)
+        need_update = True
+    elif ch == ord('2'):
+        view.highlighted_id = game_state.player_2_iden
+        depth = game_state.iden_lookup[view.highlighted_id].depth
+        view.dungeon = depth
+        logger.debug('moved to depth %s', depth)
+        set_entity_prompt(game_state, view, logger)
+        need_update = True
+    elif ch == ord('o'):
         view.highlighted_id = game_state.player_1_iden
         set_entity_prompt(game_state, view, logger)
         need_update = True

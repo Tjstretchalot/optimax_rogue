@@ -2,6 +2,7 @@
 """
 import socket
 import typing
+import time
 from contextlib import suppress
 
 import optimax_rogue.networking.packets as packets
@@ -34,6 +35,7 @@ class PlayerConnection(Connection):
         res.rec_queue = other.rec_queue
         res.curr_send_packet = other.curr_send_packet
         res.curr_rec = other.curr_rec
+        return res
 
 class SpectatorConnection(Connection):
     """Describes a connection to the server by someone who is watching the game"""
@@ -46,6 +48,7 @@ class SpectatorConnection(Connection):
         res.rec_queue = other.rec_queue
         res.curr_send_packet = other.curr_send_packet
         res.curr_rec = other.curr_rec
+        return res
 
 class Server:
     """Handles the glue that allows the game to update while informing all clients
@@ -54,26 +57,36 @@ class Server:
         game_state (GameState): contains the entire state of the game
         updater (Updater): the thing that moves time along
 
+        tickrate (float): minimum seconds between ticks
+
         listen_sock (socket.socket): the socket that spectators can connect to
 
         player1_conn (PlayerConnection): the connection from player 1
         player2_conn (PlayerConnection): the connection from player 2
 
         spectators (SpectatorConnection): all the spectators
+
+        _last_tick (float): last time.time() we ticked
     """
 
-    def __init__(self, game_state: GameState, updater: Updater, listen_sock: socket.socket,
+    def __init__(self, game_state: GameState, updater: Updater, tickrate: float,
+                 listen_sock: socket.socket,
                  player1_conn: PlayerConnection, player2_conn: PlayerConnection,
                  spectators: typing.List[SpectatorConnection]):
         if not game_state.is_authoritative:
             raise ValueError('server must have authoritative game state')
-
+        if not isinstance(player1_conn, PlayerConnection):
+            raise ValueError(f'expected player1_conn is PlayerConnection, got {player1_conn} (type={type(player1_conn)})')
+        if not isinstance(player2_conn, PlayerConnection):
+            raise ValueError(f'expected player2_conn is PlayerConnection, got {player2_conn} (type={type(player2_conn)})')
         self.game_state = game_state
         self.updater = updater
+        self.tickrate = tickrate
         self.listen_sock = listen_sock
         self.player1_conn = player1_conn
         self.player2_conn = player2_conn
         self.spectators = spectators
+        self._last_tick = time.time()
 
     def update(self) -> UpdateResult:
         """Handles moving the world along and scanning for new / disconnected spectators
@@ -103,8 +116,9 @@ class Server:
         self._handle_player(self.player1_conn)
         self._handle_player(self.player2_conn)
 
-        if self.player1_conn.move is not None and self.player2_conn.move is not None:
-            print('[server] have all moves, broadcasting updates')
+        if (self.player1_conn.move is not None and self.player2_conn.move is not None
+                and time.time() >= self._last_tick + self.tickrate):
+            self._last_tick = time.time()
 
             self._broadcast_packet(packets.TickStartPacket())
             result, upds = self.updater.update(self.game_state, self.player1_conn.move,
@@ -133,27 +147,51 @@ class Server:
             self.spectators.append(spec)
 
     def _broadcast_update(self, update: updates.GameStateUpdate):
+        p1_handled = False
+        p2_handled = False
         if isinstance(update, updates.EntityPositionUpdate) and update.depth_changed:
+            update: updates.EntityPositionUpdate
             if update.entity_iden == self.player1_conn.entity_iden:
                 self.player1_conn.send(
                     packets.SyncPacket(self.game_state.view_for(
-                        self.game_state.iden_lookup[self.player1_conn.entity_iden]
+                        self.game_state.player_1
                     ), self.player1_conn.entity_iden)
                 )
+                p1_handled = True
             elif update.entity_iden == self.player2_conn.entity_iden:
                 self.player2_conn.send(
                     packets.SyncPacket(self.game_state.view_for(
-                        self.game_state.iden_lookup[self.player2_conn.entity_iden]
+                        self.game_state.player_2
                     ), self.player2_conn.entity_iden)
                 )
+                p2_handled = True
+
+            if not p1_handled and update.depth == self.game_state.player_1.depth:
+                self.player1_conn.send(
+                    packets.UpdatePacket(updates.EntitySpawnUpdate(
+                        self.updater.get_incr_upd_order(),
+                        self.game_state.iden_lookup[update.entity_iden]
+                    ))
+                )
+                p1_handled = True
+
+            if not p2_handled and update.depth == self.game_state.player_2.depth:
+                self.player2_conn.send(
+                    packets.UpdatePacket(updates.EntitySpawnUpdate(
+                        self.updater.get_incr_upd_order(),
+                        self.game_state.iden_lookup[update.entity_iden]
+                    ))
+                )
+                p1_handled = True
+
 
         if not isinstance(update, updates.DungeonCreatedUpdate):
-            if update.relevant_for(
+            if not p1_handled and update.relevant_for(
                     self.game_state,
                     self.game_state.iden_lookup[self.player1_conn.entity_iden].depth):
                 self.player1_conn.send(packets.UpdatePacket(update))
 
-            if update.relevant_for(
+            if not p2_handled and update.relevant_for(
                     self.game_state,
                     self.game_state.iden_lookup[self.player2_conn.entity_iden].depth):
                 self.player2_conn.send(packets.UpdatePacket(update))

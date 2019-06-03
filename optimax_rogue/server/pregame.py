@@ -94,9 +94,10 @@ class ServerPregame:
             it starts
 
         dgen (DungeonGenerator): used to create the initial world and pass to the updater
+        tickrate (float): the tickrate, passed to the server
     """
     def __init__(self, listen_sock: socket.socket, player1_secret: bytes, player2_secret: bytes,
-                 dgen: DungeonGenerator):
+                 dgen: DungeonGenerator, tickrate: float):
         self.listen_sock = listen_sock
         self.player1_conn: Connection = None
         self.player2_conn: Connection = None
@@ -104,6 +105,7 @@ class ServerPregame:
         self.player2_secret = player2_secret
         self.spectators: typing.List[Connection] = []
         self.dgen = dgen
+        self.tickrate = float(tickrate)
 
     def update(self) -> typing.Tuple[PregameUpdateResult,
                                      typing.Optional[Server]]:
@@ -122,6 +124,7 @@ class ServerPregame:
 
         if (self.player1_conn and self.player1_conn.disconnected() or
                 self.player2_conn and self.player2_conn.disconnected()):
+            print('[pregame] lobby ended due to disconnect')
             self.broadcast_packet(LobbyChangePacket(
                 PregameUpdateResult.SetupFailed
             ))
@@ -201,7 +204,7 @@ class ServerPregame:
             spec.send(packets.SyncPacket(game_state.view_spec(), None))
 
         updater = Updater(self.dgen)
-        server = Server(game_state, updater, self.listen_sock,
+        server = Server(game_state, updater, self.tickrate, self.listen_sock,
                         PlayerConnection.copy_from(self.player1_conn, 1),
                         PlayerConnection.copy_from(self.player2_conn, 2),
                         [SpectatorConnection.copy_from(s) for s in self.spectators])

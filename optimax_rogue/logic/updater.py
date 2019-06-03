@@ -116,7 +116,7 @@ class Updater:
         random.shuffle(npcs)
         updents.extend(npcs)
 
-        eiden_to_ind = dict((ent.iden, ind) for ind, ent in enumerate(updents))
+        eiden_to_ind = dict((ent.entity.iden, ind) for ind, ent in enumerate(updents))
 
         # handle moves
         for ind, updent in enumerate(updents):
@@ -193,8 +193,7 @@ class Updater:
             result.append(updates.EntityPositionUpdate(
                 self.get_incr_upd_order(), ent.entity.iden, ent.entity.depth, False, newx, newy
             ))
-            ent.entity.x = newx
-            ent.entity.y = newy
+            game_state.move_entity(ent.entity, ent.entity.depth, newx, newy)
             ent.real_move = RealMove.Move
             return
 
@@ -280,7 +279,7 @@ class Updater:
         attack_prevals = []
         defend_prevals = []
 
-        og_dmg = attacker.damage - attacker.armor
+        og_dmg = attacker.damage.value - attacker.armor.value
         ares = AttackResult(og_dmg, tags.copy())
         attack_args = AttackEventArgs(defender.iden, ares)
         defend_args = DefendEventArgs(attacker.iden, ares)

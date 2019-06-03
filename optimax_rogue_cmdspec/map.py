@@ -58,6 +58,11 @@ class TextMapView:
             for row in range(min(dung.tiles.shape[1], maxrow)):
                 stdscr.addstr(row, col, *TILES[dung.tiles[col, row]])
 
+        if maxcol > dung.tiles.shape[0]:
+            spacing = ' ' * (maxcol - dung.tiles.shape[0])
+            for row in range(min(dung.tiles.shape[1], maxrow)):
+                stdscr.addstr(row, dung.tiles.shape[0], spacing)
+
         for ent in game_state.entities:
             if ent.depth != self.dungeon:
                 continue

@@ -3,6 +3,8 @@
 
 import argparse
 import socket
+import sys
+import traceback
 from optimax_rogue.logic.worldgen import EmptyDungeonGenerator
 from optimax_rogue.server.pregame import ServerPregame, PregameUpdateResult
 from optimax_rogue.logic.updater import UpdateResult
@@ -16,19 +18,35 @@ def main():
     parser.add_argument('secret2', metavar='S2', type=str, help='player 2 secret')
     parser.add_argument('-hn', '--host', '--hostname', type=str, help='specify the host to use')
     parser.add_argument('-p', '--port', type=int, help='specify port to listen on')
+    parser.add_argument('-l', '--log', type=str, help='if specified, rerout stdout and stderr to this file')
+    parser.add_argument('-t', '--tickrate', type=float, help='minimum seconds between ticks', default=1.0)
     args = parser.parse_args()
 
+    if args.log:
+        with open(args.log, 'w') as fh:
+            sys.stdout = fh
+            sys.stderr = fh
+            try:
+                _run(args)
+            except:
+                traceback.print_exc(file=fh)
+                raise
+    else:
+        _run(args)
+
+
+def _run(args):
     secret1 = args.secret1.encode('ASCII', 'strict')
     secret2 = args.secret2.encode('ASCII', 'strict')
+    tickrate = args.tickrate
     if secret1 == secret2:
         print('secret1 cannot be the same as secret2')
-        parser.print_help()
         return
 
     host = args.host or 'localhost'
     port = args.port or 0
 
-    dgen = EmptyDungeonGenerator(22, 12)
+    dgen = EmptyDungeonGenerator(5, 5)
     ticker = Ticker(0.016)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listen_sock:
@@ -38,7 +56,7 @@ def main():
         host, port = listen_sock.getsockname()
         print(f'[main] bound on host {host}, port {port}')
 
-        pregame = ServerPregame(listen_sock, secret1, secret2, dgen)
+        pregame = ServerPregame(listen_sock, secret1, secret2, dgen, tickrate)
         result = PregameUpdateResult.InProgress
         server = None
         while result == PregameUpdateResult.InProgress:
@@ -46,11 +64,12 @@ def main():
             ticker()
 
         if result != PregameUpdateResult.Ready:
-            print('[main] ending due to non-ready pregame result')
+            print(f'[main] ending due to non-ready pregame result {result}')
             return
 
         result = UpdateResult.InProgress
         while result == UpdateResult.InProgress:
+            server.game_state.on_tick()
             result = server.update()
             ticker()
 

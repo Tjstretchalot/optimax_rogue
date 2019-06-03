@@ -130,9 +130,21 @@ def serialize_embeddable(obj: Serializable) -> typing.Any:
     """Serializes the given object in an embeddable way"""
     return {'iden': obj.identifier(), 'prims': obj.to_prims_embeddable()}
 
+def _debug_dump(obj: Serializable):
+    """Tries to fairly determine why something will fail to serialize"""
+    print(f'[serializer] dumping {obj} (type={type(obj)})')
+    for key, val in obj.__dict__.items():
+        print(f'[serializer]   {key} -> {val} (type={type(val)})')
+        if isinstance(val, Serializable):
+            _debug_dump(val)
+
 def serialize(obj: Serializable) -> bytes:
     """Serializes the given object"""
-    return SERIALIZER.serialize(serialize_embeddable(obj))
+    try:
+        return SERIALIZER.serialize(serialize_embeddable(obj))
+    except:
+        _debug_dump(obj)
+        raise
 
 def peek_type_embeddable(serd: typing.Any) -> typing.Type:
     """Returns the type of the serialized embeddable"""

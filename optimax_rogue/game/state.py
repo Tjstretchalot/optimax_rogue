@@ -30,6 +30,16 @@ class GameState(ser.Serializable):
         self.pos_lookup = dict(((ent.depth, ent.x, ent.y), ent) for ent in entities)
         self.iden_lookup = dict((ent.iden, ent) for ent in entities)
 
+    @property
+    def player_1(self) -> Entity:
+        """Get the entity for player 1"""
+        return self.iden_lookup[self.player_1_iden]
+
+    @property
+    def player_2(self) -> Entity:
+        """Get the entity for player 2"""
+        return self.iden_lookup[self.player_2_iden]
+
     def on_tick(self):
         """This does not move time forward, it simply ensures all the references and attribles
         are up to date"""
@@ -48,7 +58,13 @@ class GameState(ser.Serializable):
 
     def move_entity(self, entity, newdepth, newx, newy):
         """Convenience function for moving an existing entity"""
-        del self.pos_lookup[(newdepth, entity.x, entity.y)]
+        if (entity.depth, entity.x, entity.y) not in self.pos_lookup:
+            print('[gamestate] about to error on move_entity')
+            for key, val in self.pos_lookup.items():
+                if val == entity:
+                    print(f'[gamestate] found stored location: {key}')
+            print(f'[gamestate] search location: {entity.depth}, {entity.x}, {entity.y}')
+        del self.pos_lookup[(entity.depth, entity.x, entity.y)]
         entity.depth = newdepth
         entity.x = newx
         entity.y = newy
@@ -107,3 +123,5 @@ class GameState(ser.Serializable):
             entities.append(ent)
 
         return cls(auth_val == 1, p1_iden, p2_iden, world, entities)
+
+ser.register(GameState)

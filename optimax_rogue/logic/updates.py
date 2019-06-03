@@ -136,6 +136,8 @@ class EntityCombatUpdate(GameStateUpdate):
         return (game_state.iden_lookup[self.attacker_iden].depth == depth
                 or game_state.iden_lookup[self.defender_iden].depth == depth)
 
+ser.register(EntityCombatUpdate)
+
 class EntitySpawnUpdate(GameStateUpdate):
     """This update corresponds with an entity spawning on the world
 

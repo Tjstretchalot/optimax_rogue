@@ -17,24 +17,30 @@ def main():
     secret2 = secrets.token_hex()
 
     subprocess.Popen(
-        ['python', '-m', 'optimax_rogue.server.main', secret1, secret2, '--port', str(args.port)],
+        ['python', '-m', 'optimax_rogue.server.main', secret1, secret2, '--port', str(args.port),
+         '--log', 'server_log.txt'],
         creationflags=subprocess.CREATE_NEW_CONSOLE)
 
-    time.sleep(3)
+    time.sleep(1)
 
     subprocess.Popen(
-        ['python', '-m', 'optimax_rogue_bots.main', 'localhost', str(args.port), args.bot1, secret1],
+        ['python', '-m', 'optimax_rogue_bots.main', 'localhost', str(args.port), args.bot1, secret1,
+         '--log', 'bot1_log.txt'],
         creationflags=subprocess.CREATE_NEW_CONSOLE
     )
 
-    time.sleep(0.5)
-
     subprocess.Popen(
-        ['python', '-m', 'optimax_rogue_bots.main', 'localhost', str(args.port), args.bot2, secret2],
+        ['python', '-m', 'optimax_rogue_bots.main', 'localhost', str(args.port), args.bot2, secret2,
+         '--log', 'bot2_log.txt'],
         creationflags=subprocess.CREATE_NEW_CONSOLE
     )
 
-    time.sleep(0.5)
+    time.sleep(0.2)
+
+    subprocess.Popen(
+        ['python', '-m', 'optimax_rogue_cmdspec.main', 'localhost', str(args.port)],
+        creationflags=subprocess.CREATE_NEW_CONSOLE
+    )
 
 if __name__ == '__main__':
     main()

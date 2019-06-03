@@ -54,7 +54,7 @@ class SyncPacket(Packet):
 
     @classmethod
     def from_prims(cls, prims) -> 'SyncPacket':
-        if not isinstance(ser.peek_type_embeddable(prims['game_state']), GameState):
+        if ser.peek_type_embeddable(prims['game_state']) != GameState:
             raise ValueError('game_state bad type')
 
         return cls(
@@ -107,9 +107,6 @@ class UpdatePacket(Packet):
 
     @classmethod
     def from_prims(cls, prims) -> 'UpdatePacket':
-        if not isinstance(ser.peek_type_embeddable(prims['update']), GameStateUpdate):
-            raise ValueError('update bad type')
-
         return cls(ser.deserialize_embeddable(prims['update']))
 
 register_packet(UpdatePacket)

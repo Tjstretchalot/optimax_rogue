@@ -4,11 +4,14 @@ the game ends"""
 import argparse
 import importlib
 import socket
+import sys
+import traceback
 
 import optimax_rogue.networking.packets as packets
 import optimax_rogue.networking.shared as nshared
 import optimax_rogue.server.pregame as pregame
 import optimax_rogue.game.state as state
+import optimax_rogue.logic.updates # pylint: disable=unused-import
 
 from optimax_rogue.logic.updater import UpdateResult
 from optimax_rogue.utils.ticker import Ticker
@@ -21,9 +24,22 @@ def main():
     parser.add_argument('port', type=int, help='the port to connect on')
     parser.add_argument('bot', metavar='B', type=str, help='module + class for the bot')
     parser.add_argument('secret', metavar='S', type=str, help='the secret to identify with')
+    parser.add_argument('-l', '--log', type=str, help='if specified, rerout stdout and stderr to this file')
     args = parser.parse_args()
 
+    if args.log:
+        with open(args.log, 'w') as fh:
+            sys.stdout = fh
+            sys.stderr = fh
+            try:
+                _run(args)
+            except:
+                traceback.print_exc(file=fh)
+                raise
+    else:
+        _run(args)
 
+def _run(args):
     bot_spl = args.bot.split('.')
     bot_mod = importlib.import_module('.'.join(bot_spl[:-1]))
 
@@ -42,15 +58,17 @@ def main():
         succ_pack = conn.read()
         if succ_pack:
             if not isinstance(succ_pack, pregame.IdentifyResultPacket):
-                sock.shutdown()
+                sock.shutdown(socket.SHUT_RDWR)
                 raise ValueError(f'expected identify result, got {succ_pack} (type={type(succ_pack)})')
             succ_pack: pregame.IdentifyResultPacket
             if not succ_pack.player_id:
-                sock.shutdown()
+                sock.shutdown(socket.SHUT_RDWR)
                 raise ValueError(f'expected successful identify, but failed')
             playid = succ_pack.player_id
             print(f'Successfully identified and received player id {playid}')
             break
+        elif conn.disconnected():
+            raise ValueError('server shutdown prematurely (in pregame phase)')
 
     game_state = None
     while True:
@@ -58,11 +76,13 @@ def main():
         conn.update()
         pack = conn.read()
         if not pack:
+            if conn.disconnected():
+                raise ValueError('server shutdown prematurely')
             continue
         if isinstance(pack, pregame.LobbyChangePacket):
             pack: pregame.LobbyChangePacket
             if pack.result == pregame.PregameUpdateResult.SetupFailed:
-                sock.shutdown()
+                sock.shutdown(socket.SHUT_RDWR)
                 raise ValueError('lobby setup failed')
         elif isinstance(pack, packets.SyncPacket):
             pack: packets.SyncPacket
@@ -85,32 +105,35 @@ def main():
         conn.update()
         if need_move and not in_update:
             move = bot.move(game_state)
-            print(f'chose move {move}')
             conn.send(packets.MovePacket(get_ent().iden, move))
             need_move = False
 
         pack = conn.read()
         if not pack:
+            if conn.disconnected():
+                print('[optimax_rogue_bots.main] connection ended abruptly')
+                break
             continue
         if not in_update:
             if not isinstance(pack, packets.TickStartPacket):
-                sock.shutdown()
+                sock.shutdown(socket.SHUT_RDWR)
                 raise ValueError(f'bad packet: {pack} (type={type(pack)}) (expected TickStartPacket)')
             in_update = True
             continue
         if isinstance(pack, packets.TickEndPacket):
             pack: packets.TickEndPacket
             if pack.result != UpdateResult.InProgress:
-                sock.shutdown()
+                sock.shutdown(socket.SHUT_RDWR)
                 print(f'game ended with result {pack.result}')
                 break
             in_update = False
             need_move = True
+            game_state.on_tick()
             continue
         game_state = handle_packet(game_state, pack)
         if game_state is None:
             print('game ended irregularly')
-            sock.shutdown()
+            sock.shutdown(socket.SHUT_RDWR)
             break
 
 def handle_packet(game_state: state.GameState, pack: packets.Packet) -> state.GameState:

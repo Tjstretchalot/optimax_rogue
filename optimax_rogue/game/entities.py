@@ -34,6 +34,7 @@ class Entity(ser.Serializable):
                  modifiers: typing.List[Modifier], items: typing.Dict[int, Item]):
         self.iden = iden
         self.depth = depth
+        self._x = None
         self.x = x #pylint: disable=invalid-name
         self.y = y #pylint: disable=invalid-name
         self.health = health
@@ -45,6 +46,17 @@ class Entity(ser.Serializable):
         self.armor = attrs.ArmorAttrible(self)
         self.modifiers = modifiers
         self.items = items
+
+    @property
+    def x(self):
+        """Get or set the x position of this entity (with type checking)"""
+        return self._x
+
+    @x.setter
+    def x(self, x):
+        if not isinstance(x, int):
+            raise ValueError(f'x must be an int, got {x} (type={type(x)})')
+        self._x = x
 
     def copy(self) -> 'Entity':
         """Returns a deep copy of this entity"""
@@ -66,6 +78,7 @@ class Entity(ser.Serializable):
             'iden': self.iden,
             'x': self.x,
             'y': self.y,
+            'depth': self.depth,
             'health': self.health,
             'base_max_health': self.base_max_health,
             'base_damage': self.base_damage,
@@ -80,3 +93,5 @@ class Entity(ser.Serializable):
         cpprims['modifiers'] = [ser.deserialize_embeddable(mod) for mod in prims['modifiers']]
         cpprims['items'] = dict((key, ser.deserialize_embeddable(val)) for key, val in prims['items'])
         return cls(**cpprims)
+
+ser.register(Entity)

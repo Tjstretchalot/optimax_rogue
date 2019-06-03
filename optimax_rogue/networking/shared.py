@@ -4,6 +4,7 @@ import socket
 import queue
 import io
 import typing
+import traceback
 from collections import deque
 
 import optimax_rogue.networking.packets as packets
@@ -51,8 +52,13 @@ class Connection:
         try:
             self._handle_send()
             self._handle_rec()
+        except BlockingIOError:
+            pass
         except OSError:
             self.connection = None
+            print(f'[networking.shared] connection lost')
+            traceback.print_exc()
+
 
     def _handle_send(self):
         if self.curr_send_packet is None:

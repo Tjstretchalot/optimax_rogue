@@ -49,16 +49,21 @@ class Dungeon(ser.Serializable):
         """Returns all unblocked tiles as a boolean array"""
         return self.tiles != Tile.Wall
 
+    def staircase(self) -> typing.Tuple[int, int]:
+        """Gets the location of the staircase"""
+        resx, resy = tuple(np.argwhere(self.tiles == Tile.StaircaseDown)[0])
+        return int(resx), int(resy)
+
     def get_random_unblocked(self) -> typing.Tuple[int, int]:
         """Gets a random unblocked tile (x, y) tuple"""
-        avail = self.get_unblocked()
+        avail = self.tiles == Tile.Ground
         avail_inds = np.arange(avail.shape[0] * avail.shape[1]).reshape(avail.shape)[avail]
 
         choice = np.random.randint(avail_inds.shape[0])
         flat_ind = avail_inds[choice]
         res_x = flat_ind // avail.shape[1]
         res_y = flat_ind - res_x * avail.shape[1]
-        return (res_x, res_y)
+        return (int(res_x), int(res_y))
 
     @classmethod
     def has_custom_serializer(cls) -> bool:
