@@ -107,6 +107,16 @@ class Modifier(ser.Serializable):
         self.flat_max_health = flat_max_health
         self.flat_damage = flat_damage
 
+    @property
+    def name(self):
+        """A pretty name for this modifier"""
+        raise NotImplementedError
+
+    @property
+    def description(self):
+        """A pretty description for this modifier"""
+        raise NotImplementedError
+
     def copy(self, ent: 'Entity') -> 'Modifier':
         """Returns a copy of this modifier that is attached to the given entity"""
         raise NotImplementedError

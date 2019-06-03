@@ -93,6 +93,10 @@ class World(ser.Serializable):
     def __init__(self, dungeons: typing.Dict[int, Dungeon]) -> None:
         self.dungeons = dungeons
 
+    def on_tick(self, game_state) -> None:
+        """Should be called after a tick to ensure this is internally consistent"""
+        pass
+
     def shallow_copy_with_layers(self, *layers):
         """Returns a shallow copy of this world which only has the specified
         layers"""

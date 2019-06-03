@@ -6,7 +6,7 @@ class Attrible:
 
     Attributes:
         parent (Entity): the entity this attribute is on
-        value (int): the last calculated value for this attrible (updated on_tick)
+        value (any): the last calculated value for this attrible (updated on_tick)
     """
 
     def __init__(self, parent: 'Entity') -> None:
