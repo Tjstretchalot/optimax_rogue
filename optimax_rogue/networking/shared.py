@@ -1,7 +1,11 @@
 """Shared networking components (ie. networking protocol)
 """
 import socket
-import queue
+try:
+    from queue import SimpleQueue as Queue
+except:
+    from queue import Queue as Queue
+
 import io
 import typing
 import traceback
@@ -32,8 +36,8 @@ class Connection:
         self.connection = connection
         self.address = address
 
-        self.send_queue = queue.SimpleQueue()
-        self.rec_queue = queue.SimpleQueue()
+        self.send_queue = Queue()
+        self.rec_queue = Queue()
 
         self.curr_send_packet: io.BytesIO = None
         self.curr_rec = deque()
