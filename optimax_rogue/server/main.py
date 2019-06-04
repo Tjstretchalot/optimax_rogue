@@ -77,7 +77,12 @@ def _run(args):
             result = server.update()
             ticker()
 
+        while server.has_pending():
+            server.update_queues()
+            ticker()
+
         print(f'[main] game ended with result {result}')
+
 
 
 if __name__ == '__main__':

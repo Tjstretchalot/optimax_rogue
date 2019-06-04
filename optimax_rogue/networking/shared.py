@@ -163,18 +163,18 @@ class Connection:
         """Returns the packet from the client if there is one"""
         return self.rec_queue.get_nowait() if not self.rec_queue.empty() else None
 
-    def has_pending(self) -> bool:
+    def has_pending(self, read=True, write=True) -> bool:
         """Returns True if there are pending sends / receives, False otherwise"""
-        if not self.send_queue.empty():
+        if write and not self.send_queue.empty():
             # have things to send still
             return True
-        if not self.rec_queue.empty():
+        if read and not self.rec_queue.empty():
             # have things that we've parsed but haven't been read() yet
             return True
-        if self.curr_send_packet is not None:
+        if write and self.curr_send_packet is not None:
             # in the middle of sending something
             return True
-        if self.curr_rec:
+        if read and self.curr_rec:
             # have things not yet parsed / incomplete
             return True
         return False

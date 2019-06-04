@@ -91,10 +91,7 @@ class Server:
     def update(self) -> UpdateResult:
         """Handles moving the world along and scanning for new / disconnected spectators
         """
-        self.player1_conn.update()
-        self.player2_conn.update()
-        for spec in self.spectators:
-            spec.update()
+        self.update_queues()
 
         if self.player1_conn.disconnected() and self.player2_conn.disconnected():
             print('[server] both players disconnected -> tie')
@@ -136,6 +133,24 @@ class Server:
         self._check_new_spectators()
 
         return UpdateResult.InProgress
+
+    def update_queues(self):
+        """Sends pending messages"""
+        self.player1_conn.update()
+        self.player2_conn.update()
+        for spec in self.spectators:
+            spec.update()
+
+    def has_pending(self):
+        """Returns True if there are pending messages, False otherwise"""
+        if self.player1_conn.has_pending(read=False):
+            return True
+        if self.player2_conn.has_pending(read=False):
+            return True
+        for spec in self.spectators:
+            if spec.has_pending(read=False):
+                return True
+
 
     def _check_new_spectators(self):
         with suppress(BlockingIOError):

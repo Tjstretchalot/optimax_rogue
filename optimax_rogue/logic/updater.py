@@ -126,19 +126,19 @@ class Updater:
         ind = len(game_state.entities) - 1
         while ind >= 0:
             ent: Entity = game_state.entities[ind]
-            if ent.health <= 0:
-                result.append(updates.EntityDeathUpdate(
-                    self.get_incr_upd_order(), ent.iden
-                ))
-
-                if ent.iden not in (game_state.player_1_iden, game_state.player_2_iden):
+            if ent.health <= 0 and ent.iden not in (game_state.player_1_iden, game_state.player_2_iden):
+                    result.append(updates.EntityDeathUpdate(
+                        self.get_incr_upd_order(), ent.iden
+                    ))
                     game_state.remove_entity(ent)
             ind -= 1
 
         # handle player deaths
         if player1.health <= 0:
+            print('[updater] player 1 died')
             return (UpdateResult.Tie if player2.health <= 0 else UpdateResult.Player2Win), result
         if player2.health <= 0:
+            print('[updater] player 2 died')
             return UpdateResult.Player1Win, result
 
         return UpdateResult.InProgress, result
@@ -299,6 +299,7 @@ class Updater:
 
         if ares.damage > 0:
             defender.health -= ares.damage
+            print(f'[updater] player {defender.iden} at {defender.x}, {defender.y} took {ares.damage} from {attacker.iden}  at {attacker.x}, {attacker.y} (new health: {defender.health}) (tags: {tags})')
 
         result.append(updates.EntityCombatUpdate(
             self.get_incr_upd_order(), attacker.iden, defender.iden,

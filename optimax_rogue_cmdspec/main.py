@@ -101,8 +101,13 @@ def main(stdscr):
                 in_update = False
                 game_state.on_tick()
                 if view.prompt and view.prompt[0].startswith('Selected'):
-                    set_entity_prompt(game_state, view, logger)
-                    need_update = True
+                    if view.highlighted_id not in game_state.iden_lookup:
+                        view.highlighted_id = None
+                    else:
+                        ent = game_state.iden_lookup[view.highlighted_id]
+                        view.dungeon = ent.depth
+                        set_entity_prompt(game_state, view, logger)
+                        need_update = True
                 continue
             if isinstance(pack, packets.SyncPacket):
                 pack: packets.SyncPacket

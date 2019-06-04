@@ -124,6 +124,7 @@ def _run(args):
             pack: packets.TickEndPacket
             if pack.result != UpdateResult.InProgress:
                 sock.shutdown(socket.SHUT_RDWR)
+                bot.finished(game_state, pack.result)
                 print(f'game ended with result {pack.result}')
                 break
             in_update = False
