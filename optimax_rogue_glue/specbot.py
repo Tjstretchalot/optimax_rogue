@@ -14,6 +14,7 @@ def main():
     parser.add_argument('--tickrate', type=float, default=1.0, help='seconds per tick for server')
     parser.add_argument('--headless', action='store_true', help='Use headless mode')
     parser.add_argument('--repeat', action='store_true', help='Keeps respawning server until stopped')
+    parser.add_argument('--py3', action='store_true', help='changes executable to python3')
     args = parser.parse_args()
 
     _run(args)
@@ -25,12 +26,13 @@ def main():
 def _run(args):
     secret1 = secrets.token_hex()
     secret2 = secrets.token_hex()
+    executable = 'python3' if args.py3 else 'python'
 
     create_flags = 0 if args.headless else subprocess.CREATE_NEW_CONSOLE
 
     procs = []
     procs.append(subprocess.Popen(
-        ['python', '-m', 'optimax_rogue.server.main', secret1, secret2, '--port', str(args.port),
+        [executable, '-m', 'optimax_rogue.server.main', secret1, secret2, '--port', str(args.port),
          '--log', 'server_log.txt', '--tickrate', str(args.tickrate)],
         creationflags=create_flags
     ))
@@ -38,13 +40,13 @@ def _run(args):
     time.sleep(2)
 
     procs.append(subprocess.Popen(
-        ['python', '-m', 'optimax_rogue_bots.main', 'localhost', str(args.port), args.bot1, secret1,
+        [executable, '-m', 'optimax_rogue_bots.main', 'localhost', str(args.port), args.bot1, secret1,
          '--log', 'bot1_log.txt'],
         creationflags=create_flags
     ))
 
     procs.append(subprocess.Popen(
-        ['python', '-m', 'optimax_rogue_bots.main', 'localhost', str(args.port), args.bot2, secret2,
+        [executable, '-m', 'optimax_rogue_bots.main', 'localhost', str(args.port), args.bot2, secret2,
          '--log', 'bot2_log.txt'],
         creationflags=create_flags
     ))
@@ -53,7 +55,7 @@ def _run(args):
 
     if not args.headless:
         procs.append(subprocess.Popen(
-            ['python', '-m', 'optimax_rogue_cmdspec.main', 'localhost', str(args.port)],
+            [executable, '-m', 'optimax_rogue_cmdspec.main', 'localhost', str(args.port)],
             creationflags=subprocess.CREATE_NEW_CONSOLE
         ))
 
