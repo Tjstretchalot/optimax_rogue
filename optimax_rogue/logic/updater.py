@@ -2,7 +2,6 @@
 import typing
 import random
 import enum
-from dataclasses import dataclass
 from optimax_rogue.game.state import GameState
 from optimax_rogue.game.entities import Entity
 from optimax_rogue.game.modifiers import (
@@ -32,7 +31,6 @@ class RealMove(enum.IntEnum):
     Move = 7 # a normal movement that was unhindered
     Descend = 8 # a movement into a staircase that caused the entity to descend
 
-@dataclass
 class UpdatingEntity:
     """An wrapper around an entity that is created during the update
 
@@ -41,10 +39,10 @@ class UpdatingEntity:
         move (Move): the move the entity made
         real_move (RealMove): the real move that the entity made
     """
-
-    entity: Entity
-    move: Move
-    real_move: RealMove
+    def __init__(self, entity: Entity, move: Move, real_move: RealMove):
+        self.entity = entity
+        self.move = move
+        self.real_move = real_move
 
 class Updater:
     """This class handles moving time forward
