@@ -95,9 +95,11 @@ class ServerPregame:
 
         dgen (DungeonGenerator): used to create the initial world and pass to the updater
         tickrate (float): the tickrate, passed to the server
+
+        updater_kwargs (dict): the additional kwargs to pass to the updater
     """
     def __init__(self, listen_sock: socket.socket, player1_secret: bytes, player2_secret: bytes,
-                 dgen: DungeonGenerator, tickrate: float):
+                 dgen: DungeonGenerator, tickrate: float, updater_kwargs: dict):
         self.listen_sock = listen_sock
         self.player1_conn: Connection = None
         self.player2_conn: Connection = None
@@ -106,6 +108,7 @@ class ServerPregame:
         self.spectators: typing.List[Connection] = []
         self.dgen = dgen
         self.tickrate = float(tickrate)
+        self.updater_kwargs = updater_kwargs
 
     def update(self) -> typing.Tuple[PregameUpdateResult,
                                      typing.Optional[Server]]:
@@ -195,7 +198,7 @@ class ServerPregame:
         ent1 = entities.Entity(1, 0, p1x, p1y, 10, 10, 2, 1, [], dict())
         ent2 = entities.Entity(2, 0, p2x, p2y, 10, 10, 2, 1, [], dict())
 
-        game_state = state.GameState(True, 1, 2, world.World({0: dung}), [ent1, ent2])
+        game_state = state.GameState(True, 1, 1, 2, world.World({0: dung}), [ent1, ent2])
 
         self.player1_conn.send(packets.SyncPacket(game_state.view_for(ent1), 1))
         self.player2_conn.send(packets.SyncPacket(game_state.view_for(ent2), 2))
@@ -203,7 +206,7 @@ class ServerPregame:
         for spec in self.spectators:
             spec.send(packets.SyncPacket(game_state.view_spec(), None))
 
-        updater = Updater(self.dgen)
+        updater = Updater(self.dgen, **self.updater_kwargs)
         server = Server(game_state, updater, self.tickrate, self.listen_sock,
                         PlayerConnection.copy_from(self.player1_conn, 1),
                         PlayerConnection.copy_from(self.player2_conn, 2),

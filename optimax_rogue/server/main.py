@@ -7,7 +7,7 @@ import sys
 import traceback
 from optimax_rogue.logic.worldgen import EmptyDungeonGenerator
 from optimax_rogue.server.pregame import ServerPregame, PregameUpdateResult
-from optimax_rogue.logic.updater import UpdateResult
+from optimax_rogue.logic.updater import UpdateResult, DungeonDespawningStrategy
 from optimax_rogue.networking.server import Server
 from optimax_rogue.utils.ticker import Ticker
 
@@ -22,33 +22,43 @@ def main():
     parser.add_argument('-t', '--tickrate', type=float, help='minimum seconds between ticks', default=1.0)
     parser.add_argument('--width', type=int, help='width of map', default=60)
     parser.add_argument('--height', type=int, help='height of map', default=10)
+    parser.add_argument('--dsunused', action='store_true',
+                        help=('If specified uses DungeonDespawningStrategy.Unused instead of '
+                              + 'DungeonDespawningStrategy.Unreachable'))
     args = parser.parse_args()
 
     if args.log:
         with open(args.log, 'w') as fh:
-            sys.stdout = fh
-            sys.stderr = fh
             try:
-                _run(args)
+                print('[server.main] starting', file=fh)
+                _run(args, fh)
             except:
                 traceback.print_exc(file=fh)
                 fh.flush()
                 raise
             fh.flush()
     else:
-        _run(args)
+        _run(args, sys.stdout)
 
 
-def _run(args):
+def _run(args, fh):
     secret1 = args.secret1.encode('ASCII', 'strict')
     secret2 = args.secret2.encode('ASCII', 'strict')
     tickrate = args.tickrate
     if secret1 == secret2:
-        print('secret1 cannot be the same as secret2')
+        print('secret1 cannot be the same as secret2', file=fh)
         return
 
     host = args.host or 'localhost'
     port = args.port or 0
+
+    updater_kwargs = {
+        'despawn_strat': (
+            DungeonDespawningStrategy.Unused
+            if args.dsunused
+            else DungeonDespawningStrategy.Unreachable
+        )
+    }
 
     dgen = EmptyDungeonGenerator(args.width, args.height)
     ticker = Ticker(0.016)
@@ -58,9 +68,9 @@ def _run(args):
         listen_sock.setblocking(0)
         listen_sock.listen()
         host, port = listen_sock.getsockname()
-        print(f'[main] bound on host {host}, port {port}')
+        print(f'[main] bound on host {host}, port {port}', file=fh)
 
-        pregame = ServerPregame(listen_sock, secret1, secret2, dgen, tickrate)
+        pregame = ServerPregame(listen_sock, secret1, secret2, dgen, tickrate, updater_kwargs)
         result = PregameUpdateResult.InProgress
         server = None
         while result == PregameUpdateResult.InProgress:
@@ -68,9 +78,10 @@ def _run(args):
             ticker()
 
         if result != PregameUpdateResult.Ready:
-            print(f'[main] ending due to non-ready pregame result {result}')
+            print(f'[main] ending due to non-ready pregame result {result}', file=fh)
             return
 
+        server.outf = fh
         result = UpdateResult.InProgress
         while result == UpdateResult.InProgress:
             server.game_state.on_tick()
@@ -81,7 +92,7 @@ def _run(args):
             server.update_queues()
             ticker()
 
-        print(f'[main] game ended with result {result}')
+        print(f'[main] game ended with result {result}', file=fh)
 
 
 

@@ -3,6 +3,7 @@
 import socket
 import typing
 import time
+import sys
 from contextlib import suppress
 
 import optimax_rogue.networking.packets as packets
@@ -67,12 +68,15 @@ class Server:
         spectators (SpectatorConnection): all the spectators
 
         _last_tick (float): last time.time() we ticked
+
+        outf (filehandle): where we output logs to
     """
 
     def __init__(self, game_state: GameState, updater: Updater, tickrate: float,
                  listen_sock: socket.socket,
                  player1_conn: PlayerConnection, player2_conn: PlayerConnection,
-                 spectators: typing.List[SpectatorConnection]):
+                 spectators: typing.List[SpectatorConnection],
+                 outf = sys.stdout):
         if not game_state.is_authoritative:
             raise ValueError('server must have authoritative game state')
         if not isinstance(player1_conn, PlayerConnection):
@@ -87,6 +91,7 @@ class Server:
         self.player2_conn = player2_conn
         self.spectators = spectators
         self._last_tick = time.time()
+        self.outf = outf
 
     def update(self) -> UpdateResult:
         """Handles moving the world along and scanning for new / disconnected spectators
@@ -94,20 +99,20 @@ class Server:
         self.update_queues()
 
         if self.player1_conn.disconnected() and self.player2_conn.disconnected():
-            print('[server] both players disconnected -> tie')
+            print('[server] both players disconnected -> tie', file=self.outf)
             return UpdateResult.Tie
 
         if self.player1_conn.disconnected():
-            print('[server] game ended by player 1 disconnecting')
+            print('[server] game ended by player 1 disconnecting', file=self.outf)
             return UpdateResult.Player2Win
 
         if self.player2_conn.disconnected():
-            print('[server] game ended by player 2 disconnecting')
+            print('[server] game ended by player 2 disconnecting', file=self.outf)
             return UpdateResult.Player1Win
 
         for i in range(len(self.spectators) - 1, -1, -1):
             if self.spectators[i].disconnected():
-                print('[server] a spectator disconnected')
+                print('[server] a spectator disconnected', file=self.outf)
                 self.spectators.pop(i)
 
         self._handle_player(self.player1_conn)
@@ -126,8 +131,10 @@ class Server:
             self._broadcast_packet(packets.TickEndPacket(result))
 
             if result != UpdateResult.InProgress:
-                print(f'[server] game ended normally with result {result}')
+                print(f'[server] game ended normally with result {result}', file=self.outf)
 
+            self.player1_conn.move = None
+            self.player2_conn.move = None
             return result
 
         self._check_new_spectators()
@@ -155,7 +162,7 @@ class Server:
     def _check_new_spectators(self):
         with suppress(BlockingIOError):
             conn, addr = self.listen_sock.accept()
-            print(f'[server] got new connection from {addr}')
+            print(f'[server] got new connection from {addr}', file=self.outf)
             conn.setblocking(0)
             spec = SpectatorConnection(conn, addr)
             spec.send(packets.SyncPacket(self.game_state.view_spec(), None))
@@ -169,14 +176,14 @@ class Server:
             if update.entity_iden == self.player1_conn.entity_iden:
                 self.player1_conn.send(
                     packets.SyncPacket(self.game_state.view_for(
-                        self.game_state.player_1
+                        self.game_state.player_1, reduce_tick=True
                     ), self.player1_conn.entity_iden)
                 )
                 p1_handled = True
             elif update.entity_iden == self.player2_conn.entity_iden:
                 self.player2_conn.send(
                     packets.SyncPacket(self.game_state.view_for(
-                        self.game_state.player_2
+                        self.game_state.player_2, reduce_tick=True
                     ), self.player2_conn.entity_iden)
                 )
                 p2_handled = True
@@ -228,23 +235,27 @@ class Server:
                 return
             if isinstance(packet, packets.MovePacket):
                 if player.entity_iden != packet.entity_iden:
-                    print('[server] player move packet has bad ent id')
+                    print('[server] player move packet has bad ent id', file=self.outf)
+                    self._disconnect_player(player)
+                    return
+                if self.game_state.tick != packet.tick:
+                    print(f'[server] received wrong tick for movepacket; got {packet.tick} expected {self.game_state.tick}', file=self.outf)
                     self._disconnect_player(player)
                     return
 
                 player.move = packet.move
             else:
-                print(f'[server] player sent bad packet type {packet} (type={type(packet)})')
+                print(f'[server] player sent bad packet type {packet} (type={type(packet)})', file=self.outf)
                 self._disconnect_player(player)
                 return
 
     def _disconnect_player(self, player: PlayerConnection) -> None:
         if player == self.player1_conn:
-            print('[server] forcibly disconnecting player 1')
+            print('[server] forcibly disconnecting player 1', file=self.outf)
         elif player == self.player2_conn:
-            print('[server] forcibly disconnecting player 2')
+            print('[server] forcibly disconnecting player 2', file=self.outf)
         else:
-            print('[server] forcibly disconnecting a player')
+            print('[server] forcibly disconnecting a player', file=self.outf)
 
         player.connection.shutdown(socket.SHUT_RDWR)
         player.connection = None

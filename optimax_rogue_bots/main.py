@@ -24,7 +24,10 @@ def main():
     parser.add_argument('port', type=int, help='the port to connect on')
     parser.add_argument('bot', metavar='B', type=str, help='module + class for the bot')
     parser.add_argument('secret', metavar='S', type=str, help='the secret to identify with')
-    parser.add_argument('-l', '--log', type=str, help='if specified, rerout stdout and stderr to this file')
+    parser.add_argument('-l', '--log', type=str,
+                        help='if specified, rerout stdout and stderr to this file')
+    parser.add_argument('-tr', '--tickrate', type=float, default=0.25,
+                        help='the maximum number of seconds before we try to respond to the server')
     args = parser.parse_args()
 
     if args.log:
@@ -100,12 +103,15 @@ def _run(args):
     bot: Bot = getattr(bot_mod, bot_spl[-1])(get_ent().iden)
     need_move = True
     in_update = False
+    ticker.secondary_target_secs = args.tickrate
+    ticker.time_killer = bot.think
     while True:
         ticker()
         conn.update()
         if need_move and not in_update:
             move = bot.move(game_state)
-            conn.send(packets.MovePacket(get_ent().iden, move))
+            bot.on_move(game_state, move)
+            conn.send(packets.MovePacket(get_ent().iden, move, game_state.tick))
             need_move = False
 
         pack = conn.read()
@@ -127,6 +133,7 @@ def _run(args):
                 bot.finished(game_state, pack.result)
                 print(f'game ended with result {pack.result}')
                 break
+            game_state.tick += 1
             in_update = False
             need_move = True
             game_state.on_tick()
@@ -142,11 +149,6 @@ def handle_packet(game_state: state.GameState, pack: packets.Packet) -> state.Ga
     if isinstance(pack, packets.SyncPacket):
         pack: packets.SyncPacket
         return pack.game_state
-    if isinstance(pack, packets.MovePacket):
-        pack: packets.MovePacket
-        ent = game_state.iden_lookup[pack.entity_iden]
-        game_state.move_entity(ent, pack.newdepth, pack.newx, pack.newy)
-        return game_state
     if isinstance(pack, packets.UpdatePacket):
         pack: packets.UpdatePacket
         pack.update.apply(game_state)

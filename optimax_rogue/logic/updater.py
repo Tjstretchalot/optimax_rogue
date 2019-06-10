@@ -44,16 +44,25 @@ class UpdatingEntity:
         self.move = move
         self.real_move = real_move
 
+class DungeonDespawningStrategy(enum.IntEnum):
+    """The potential strategies that the updater uses for despawning dungeons."""
+    Unreachable = 1 # despawn unreachable dungeons (i.e. above the highest player)
+    Unused = 2 # despawn any dungeon without a player on it and regenerate if necessary
+
 class Updater:
     """This class handles moving time forward
 
     Attributes:
         current_update_order (int): the order for the next game state update
         dgen (DungeonGenerator): the thing that spawns dungeons!
+
+        despawn_strat (DungeonDespawningStrategy): the technique used for despawning
+            dungeons
     """
-    def __init__(self, dgen: DungeonGenerator):
+    def __init__(self, dgen: DungeonGenerator, despawn_strat: DungeonDespawningStrategy):
         self.current_update_order = 0
         self.dgen = dgen
+        self.despawn_strat = despawn_strat
 
     def get_incr_upd_order(self):
         """Gets and increments (as if in that order) the current update order"""
@@ -130,6 +139,9 @@ class Updater:
                     ))
                     game_state.remove_entity(ent)
             ind -= 1
+
+        # increment time
+        game_state.tick += 1
 
         # handle player deaths
         if player1.health <= 0:
@@ -222,6 +234,20 @@ class Updater:
         at_pos_upde.real_move = RealMove.Block
         ent.real_move = RealMove.AttackBlocked
 
+    def should_despawn(self, game_state: GameState, depth: int):
+        """Determines if we should despawn the dungeon at the given depth in
+        the GameState. Does not check if the specified dungeon actually exists.
+        Chosen according to the despawn strategy.
+        """
+        play1_depth = game_state.player_1.depth
+        play2_depth = game_state.player_2.depth
+
+        if self.despawn_strat == DungeonDespawningStrategy.Unreachable:
+            return play1_depth > depth and play2_depth > depth
+        elif self.despawn_strat == DungeonDespawningStrategy.Unused:
+            return depth not in (play1_depth, play2_depth)
+        raise ValueError(f'Unknown despawn strat {self.despawn_strat} (type={type(self.despawn_strat)})')
+
     def handle_descend(self, game_state: GameState, ent: UpdatingEntity,
                        result: typing.List[updates.GameStateUpdate]) -> None:
         """Handles when an entity descends by going through a staircase - this will
@@ -258,8 +284,7 @@ class Updater:
         game_state.move_entity(ent.entity, new_depth, spawn_x, spawn_y)
         ent.real_move = RealMove.Descend
 
-        if (old_depth < game_state.iden_lookup[game_state.player_1_iden].depth
-                and old_depth < game_state.iden_lookup[game_state.player_2_iden].depth):
+        if self.should_despawn(game_state, old_depth):
             game_state.world.del_at_depth(old_depth)
 
     def handle_combat(self, game_state: GameState, attacker: Entity, defender: Entity,

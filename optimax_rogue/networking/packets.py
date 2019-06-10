@@ -71,22 +71,26 @@ class MovePacket(Packet):
     Attributes:
         entity_iden (int): the entity they are controlling
         move (Move): the move they are making
+        tick (int): the tick this move is intended for
     """
-    def __init__(self, entity_iden: int, move: Move):
+    def __init__(self, entity_iden: int, move: Move, tick: int):
         if not isinstance(entity_iden, int):
             raise ValueError(f'expected entity_iden is int, got {entity_iden} '
                              + f'(type={type(entity_iden)})')
         if not isinstance(move, Move):
             raise ValueError(f'expected move is Move, got {move} (type={type(move)})')
+        if not isinstance(tick, int):
+            raise ValueError(f'expected tick is int, got {tick} (type={type(tick)})')
         self.entity_iden = entity_iden
         self.move = move
+        self.tick = tick
 
     def to_prims(self):
-        return {'entity_iden': self.entity_iden, 'move': int(self.move)}
+        return {'entity_iden': self.entity_iden, 'move': int(self.move), 'tick': self.tick}
 
     @classmethod
     def from_prims(cls, prims) -> 'MovePacket':
-        return cls(prims['entity_iden'], Move(prims['move']))
+        return cls(prims['entity_iden'], Move(prims['move']), prims['tick'])
 
 register_packet(MovePacket)
 

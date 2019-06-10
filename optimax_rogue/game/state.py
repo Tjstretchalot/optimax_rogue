@@ -13,6 +13,7 @@ class GameState(ser.Serializable):
     Attributes:
         is_authoritative (bool): True if this is an authoritative state (i.e., on the server)
             and False if it is not (i.e., on a client)
+        tick (int): the current time / which tick we are in
         player_1_iden (int): the identifier for the entity for player 1
         player_2_iden (int): the identifier for the entity for player 2
         world (World): the world
@@ -20,9 +21,10 @@ class GameState(ser.Serializable):
         pos_lookup (dict[(depth, x, y), Entity]): a lookup from positions to entities
         iden_lookup (dict[int, Entity]): a lookup from idens to identities
     """
-    def __init__(self, is_authoritative: bool, player_1_iden: int, player_2_iden: int,
-                 world: World, entities: typing.List[Entity]):
+    def __init__(self, is_authoritative: bool, tick: int, player_1_iden: int,
+                 player_2_iden: int, world: World, entities: typing.List[Entity]):
         self.is_authoritative = is_authoritative
+        self.tick = tick
         self.player_1_iden = player_1_iden
         self.player_2_iden = player_2_iden
         self.world = world
@@ -47,14 +49,16 @@ class GameState(ser.Serializable):
         for ent in self.entities:
             ent.on_tick(self)
 
-    def view_for(self, entity: Entity) -> 'GameState':
+    def view_for(self, entity: Entity, reduce_tick: bool = False) -> 'GameState':
         """Creates a non-authoritative view appropriate for the given entity"""
         new_world = self.world.shallow_copy_with_layers(entity.depth)
         new_entities = [ent for ent in self.entities if ent.depth == entity.depth]
-        return GameState(False, self.player_1_iden, self.player_2_iden, new_world, new_entities)
+        new_tick = self.tick - 1 if reduce_tick else self.tick
+        return GameState(False, new_tick, self.player_1_iden, self.player_2_iden, new_world, new_entities)
 
     def view_spec(self) -> 'GameState':
-        return GameState(False, self.player_1_iden, self.player_2_iden, self.world, self.entities)
+        """Creates a non-authoritative view appropriate for a spectator"""
+        return GameState(False, self.tick, self.player_1_iden, self.player_2_iden, self.world, self.entities)
 
     def move_entity(self, entity, newdepth, newx, newy):
         """Convenience function for moving an existing entity"""
@@ -90,6 +94,7 @@ class GameState(ser.Serializable):
         arr = io.BytesIO()
         auth_val = 1 if self.is_authoritative else 0
         arr.write(auth_val.to_bytes(1, byteorder='big', signed=False))
+        arr.write(self.tick.to_bytes(4, byteorder='big', signed=False))
         arr.write(self.player_1_iden.to_bytes(4, byteorder='big', signed=False))
         arr.write(self.player_2_iden.to_bytes(4, byteorder='big', signed=False))
 
@@ -110,6 +115,7 @@ class GameState(ser.Serializable):
         arr = io.BytesIO(prims)
         arr.seek(0, 0)
         auth_val = int.from_bytes(arr.read(1), 'big', signed=False)
+        tick = int.from_bytes(arr.read(4), 'big', signed=False)
         p1_iden = int.from_bytes(arr.read(4), 'big', signed=False)
         p2_iden = int.from_bytes(arr.read(4), 'big', signed=False)
         wlen = int.from_bytes(arr.read(8), 'big', signed=False)
@@ -122,6 +128,6 @@ class GameState(ser.Serializable):
             ent = ser.deserialize(arr.read(elen))
             entities.append(ent)
 
-        return cls(auth_val == 1, p1_iden, p2_iden, world, entities)
+        return cls(auth_val == 1, tick, p1_iden, p2_iden, world, entities)
 
 ser.register(GameState)

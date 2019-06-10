@@ -154,7 +154,7 @@ def init_empty_map() -> state.GameState:
     ent1 = entities.Entity(1, 0, p1x, p1y, 10, 10, 2, 1, [], dict())
     ent2 = entities.Entity(2, 0, p2x, p2y, 10, 10, 2, 1, [], dict())
 
-    game_state = state.GameState(True, 1, 2, world.World({0: dung}), [ent1, ent2])
+    game_state = state.GameState(True, 1, 1, 2, world.World({0: dung}), [ent1, ent2])
     game_state.on_tick()
     return game_state
 
