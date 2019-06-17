@@ -46,8 +46,9 @@ class JsonSerializer(Serializer):
     """Serializes using the json format. Tuples are converted to lists"""
 
     def serialize(self, val: typing.Any) -> bytes:
-        """Serializes the value to json format"""
-        return json.dumps(val).encode(encoding='ASCII', errors='strict')
+        """Serializes the value to json format. Other libraries assume keys
+        are sorted."""
+        return json.dumps(val, sort_keys=True).encode(encoding='ASCII', errors='strict')
 
     def deserialize(self, serd: bytes) -> typing.Any:
         """Deserializes the value from json format"""
@@ -66,7 +67,7 @@ class Serializable:
         res = self.to_prims()
         if SERIALIZER_SUPPORTS_BYTES or not self.has_custom_serializer():
             return res
-        return base64.a85encode(res).decode('ASCII', 'strict')
+        return base64.a85encode(res, pad=True).decode('ASCII', 'strict')
 
     @classmethod
     def from_prims_embeddable(cls, prims: str) -> 'Serializable':

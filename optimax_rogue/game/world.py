@@ -73,16 +73,25 @@ class Dungeon(ser.Serializable):
     def to_prims(self) -> bytes:
         """Returns a compressed representation of this dungeon"""
         arr = io.BytesIO()
-        np.savez_compressed(arr, tiles=self.tiles)
+        arr.write(int(self.tiles.shape[0]).to_bytes(4, byteorder='big', signed=False))
+        arr.write(int(self.tiles.shape[1]).to_bytes(4, byteorder='big', signed=False))
+        for y in range(self.tiles.shape[1]):
+            for x in range(self.tiles.shape[0]):
+                arr.write(int(self.tiles[x, y]).to_bytes(1, byteorder='big', signed=False))
         return arr.getvalue()
 
     @classmethod
     def from_prims(cls, prims: bytes) -> 'Dungeon':
         """Returns the uncompressed dungeon"""
-        arr = io.BytesIO(prims)
+        arr: io.BytesIO = io.BytesIO(prims)
         arr.seek(0, 0)
-        with np.load(arr) as uncomp:
-            return cls(uncomp['tiles'])
+        wid = int.from_bytes(arr.read(4), byteorder='big', signed=False)
+        hei = int.from_bytes(arr.read(4), byteorder='big', signed=False)
+        tiles = np.zeros((wid, hei), dtype='int32')
+        for y in range(hei):
+            for x in range(wid):
+                tiles[x, y] = int.from_bytes(arr.read(1), byteorder='big', signed=False)
+        return cls(tiles)
 
 ser.register(Dungeon)
 

@@ -84,14 +84,14 @@ class Entity(ser.Serializable):
             'base_damage': self.base_damage,
             'base_armor': self.base_armor,
             'modifiers': [ser.serialize_embeddable(mod) for mod in self.modifiers],
-            'items': dict((key, ser.serialize_embeddable(val)) for key, val in self.items),
+            'items': dict((str(key), ser.serialize_embeddable(val)) for key, val in self.items),
         }
 
     @classmethod
     def from_prims(cls, prims: dict) -> 'Entity':
         cpprims = prims.copy()
         cpprims['modifiers'] = [ser.deserialize_embeddable(mod) for mod in prims['modifiers']]
-        cpprims['items'] = dict((key, ser.deserialize_embeddable(val)) for key, val in prims['items'])
+        cpprims['items'] = dict((int(key), ser.deserialize_embeddable(val)) for key, val in prims['items'])
         return cls(**cpprims)
 
 ser.register(Entity)

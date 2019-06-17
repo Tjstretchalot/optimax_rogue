@@ -97,7 +97,6 @@ class Modifier(ser.Serializable):
         flat_armor (int): the flat armor modifier
         flat_max_health (int): the flat max health modifier
         flat_damage (int): the flat damage modifier
-        dict[str, list[ModifierEventHandler]]: the event handlers for this modifier
     """
 
     def __init__(self, parent: 'Entity', flat_armor: int, flat_max_health: int,

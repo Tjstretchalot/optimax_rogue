@@ -9,12 +9,6 @@ from optimax_rogue.game.state import GameState
 from optimax_rogue.logic.updates import GameStateUpdate
 from optimax_rogue.logic.updater import UpdateResult
 
-class ClientType(enum.IntEnum):
-    """The type of clients that can be connected to the server
-    """
-    Player = 1
-    Spectator = 2
-
 PACKET_TYPES = set()
 def register_packet(typ):
     """Registers the specified packet for serialization/deserialization"""

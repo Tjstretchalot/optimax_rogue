@@ -205,9 +205,7 @@ class EntityPositionUpdate(GameStateUpdate):
 
     def apply(self, game_state: GameState) -> None:
         entity = game_state.iden_lookup[self.entity_iden]
-        entity.depth = self.depth
-        entity.x = self.posx
-        entity.y = self.posy
+        game_state.move_entity(entity, self.depth, self.posx, self.posy)
 
     def relevant_for(self, game_state: GameState, depth: int) -> bool:
         return depth in (game_state.iden_lookup[self.entity_iden].depth, self.depth)
@@ -215,11 +213,12 @@ class EntityPositionUpdate(GameStateUpdate):
 ser.register(EntityPositionUpdate)
 
 class EntityHealthUpdate(GameStateUpdate):
-    """This update corresponds with an entity being hurt or healed
+    """This update corresponds with an entity being hurt or healed outside of combat
 
     Attributes:
         entity_iden (int): the identifier for the entity whose health changed
-        source_iden (int): the identifier for the entity who caused this
+        source_iden (int): the identifier for the entity who caused this. Same as entity_iden
+            if not applicable or the entity hurt/healed itself
         amount (int): the change in health
         tags (set[str]): additional tags associated with this update
     """
@@ -246,7 +245,7 @@ class EntityHealthUpdate(GameStateUpdate):
 
 ser.register(EntityHealthUpdate)
 
-class EntityModifierAdded(GameStateUpdate):
+class EntityModifierAddedUpdate(GameStateUpdate):
     """This update corresponds with an entity gaining a modifier
 
     Attributes:
@@ -276,9 +275,9 @@ class EntityModifierAdded(GameStateUpdate):
         return depth in (game_state.iden_lookup[self.entity_iden].depth,)
 
 
-ser.register(EntityModifierAdded)
+ser.register(EntityModifierAddedUpdate)
 
-class EntityModifierRemoved(GameStateUpdate):
+class EntityModifierRemovedUpdate(GameStateUpdate):
     """This update corresponds to an entity losing a modifier
 
     Attributes:
@@ -297,7 +296,7 @@ class EntityModifierRemoved(GameStateUpdate):
     def relevant_for(self, game_state: GameState, depth: int) -> bool:
         return depth in (game_state.iden_lookup[self.entity_iden].depth,)
 
-ser.register(EntityModifierRemoved)
+ser.register(EntityModifierRemovedUpdate)
 
 class DungeonCreatedUpdate(GameStateUpdate):
     """Called when a dungeon is created
