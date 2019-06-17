@@ -1,7 +1,6 @@
 """Describes packets that can be sent between the server and the client.
 Most of the core logic from the server to the client is handled in
 logic.updates. This completes those for handshaking behaviors"""
-import enum
 import typing
 import optimax_rogue.networking.serializer as ser
 from optimax_rogue.logic.moves import Move

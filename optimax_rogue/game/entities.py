@@ -94,4 +94,37 @@ class Entity(ser.Serializable):
         cpprims['items'] = dict((int(key), ser.deserialize_embeddable(val)) for key, val in prims['items'])
         return cls(**cpprims)
 
+    def __eq__(self, other):
+        if not isinstance(other, Entity):
+            return False
+        if self.iden != other.iden:
+            return False
+        if self.depth != other.depth:
+            return False
+        if self.x != other.x:
+            return False
+        if self.y != other.y:
+            return False
+        if self.health != other.health:
+            return False
+        if self.base_max_health != other.base_max_health:
+            return False
+        if self.base_damage != other.base_damage:
+            return False
+        if self.base_armor != other.base_armor:
+            return False
+        if len(self.modifiers) != len(other.modifiers):
+            return False
+        if len(self.items) != len(other.items):
+            return False
+
+        for ind, mod in enumerate(self.modifiers):
+            if mod != other.modifiers[ind]:
+                return False
+        for ind, item in self.items.items():
+            if item != other.items[ind]:
+                return False
+
+        return True
+
 ser.register(Entity)

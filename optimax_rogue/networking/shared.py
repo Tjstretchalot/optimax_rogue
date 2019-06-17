@@ -139,7 +139,6 @@ class Connection:
             lenblock = self._try_from_recq(4)
             if not lenblock:
                 return
-
             explen = int.from_bytes(lenblock, 'big', signed=False)
             block = self._try_from_recq(explen)
             if not block:

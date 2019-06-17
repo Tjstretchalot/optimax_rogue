@@ -130,4 +130,24 @@ class GameState(ser.Serializable):
 
         return cls(auth_val == 1, tick, p1_iden, p2_iden, world, entities)
 
+    def __eq__(self, other):
+        if not isinstance(other, GameState):
+            return False
+        if self.is_authoritative != other.is_authoritative:
+            return False
+        if self.tick != other.tick:
+            return False
+        if self.player_1_iden != other.player_1_iden:
+            return False
+        if self.player_2_iden != other.player_2_iden:
+            return False
+        if self.world != other.world:
+            return False
+        if len(self.entities) != len(other.entities):
+            return False
+        for ind, ent in enumerate(self.entities):
+            if ent != other.entities[ind]:
+                return False
+        return True
+
 ser.register(GameState)

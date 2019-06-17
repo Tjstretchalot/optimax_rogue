@@ -25,7 +25,8 @@ recov = ser.deserialize(ser.serialize(MyClass()))
 import typing
 import json
 import inflection
-import base64
+from optimax_rogue.networking.a85encode import a85encode
+from base64 import a85decode
 
 
 class Serializer:
@@ -52,7 +53,13 @@ class JsonSerializer(Serializer):
 
     def deserialize(self, serd: bytes) -> typing.Any:
         """Deserializes the value from json format"""
-        return json.loads(serd.decode(encoding='ASCII', errors='strict'))
+        try:
+            return json.loads(serd.decode(encoding='ASCII', errors='strict'))
+        except:
+            decoded = serd.decode(encoding='ASCII', errors='strict')
+            print('error when decoding:')
+            print(decoded)
+            raise
 
 class Serializable:
     """This is the base class for anything that can be serialized.
@@ -67,14 +74,15 @@ class Serializable:
         res = self.to_prims()
         if SERIALIZER_SUPPORTS_BYTES or not self.has_custom_serializer():
             return res
-        return base64.a85encode(res, pad=True).decode('ASCII', 'strict')
+        serd = a85encode(res).decode('ASCII', 'strict')
+        return serd
 
     @classmethod
     def from_prims_embeddable(cls, prims: str) -> 'Serializable':
         """Converts the result of to_prims_embeddable back to an instance"""
         if SERIALIZER_SUPPORTS_BYTES or not cls.has_custom_serializer():
             return cls.from_prims(prims)
-        return cls.from_prims(base64.a85decode(prims))
+        return cls.from_prims(a85decode(prims))
 
     @classmethod
     def from_prims(cls, prims) -> 'Serializable':

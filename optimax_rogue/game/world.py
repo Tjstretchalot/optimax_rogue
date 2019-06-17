@@ -93,6 +93,11 @@ class Dungeon(ser.Serializable):
                 tiles[x, y] = int.from_bytes(arr.read(1), byteorder='big', signed=False)
         return cls(tiles)
 
+    def __eq__(self, other):
+        if not isinstance(other, Dungeon):
+            return False
+        return (self.tiles != other.tiles).sum() == 0
+
 ser.register(Dungeon)
 
 class World(ser.Serializable):
@@ -160,5 +165,15 @@ class World(ser.Serializable):
             lyr = Dungeon.from_prims(arr.read(size))
             dungeons[depth] = lyr
         return cls(dungeons)
+
+    def __eq__(self, other):
+        if not isinstance(other, World):
+            return False
+        if len(self.dungeons) != len(other.dungeons):
+            return False
+        for depth, dungeon in self.dungeons.items():
+            if dungeon != other.dungeons[depth]:
+                return False
+        return True
 
 ser.register(World)
