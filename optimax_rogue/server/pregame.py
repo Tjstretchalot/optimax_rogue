@@ -4,6 +4,7 @@ that allows them to identify themself.
 import enum
 import typing
 import socket
+import io
 from contextlib import suppress
 
 import optimax_rogue.networking.serializer as ser
@@ -36,11 +37,26 @@ class IdentifyPacket(packets.Packet):
         return True
 
     def to_prims(self):
-        return self.secret
+        res = io.BytesIO()
+        res.write(len(self.secret).to_bytes(4, 'big', signed=False))
+        res.write(self.secret)
+        return res.getvalue()
 
     @classmethod
     def from_prims(cls, prims) -> 'IdentifyPacket':
-        return cls(prims)
+        res = io.BytesIO(prims)
+        res.seek(0, 0)
+        secret_len = int.from_bytes(res.read(4), 'big', signed=False)
+        secret = res.read(secret_len)
+        return cls(secret)
+
+    def __str__(self):
+        return f'IdentifyPacket[secret={self.secret}]'
+
+    def __eq__(self, other):
+        if not isinstance(other, IdentifyPacket):
+            return False
+        return self.secret == other.secret
 
 packets.register_packet(IdentifyPacket)
 
@@ -144,6 +160,7 @@ class ServerPregame:
         for ind in range(len(self.spectators) - 1, -1, -1):
             spec: Connection = self.spectators[ind]
             if spec.disconnected():
+                print(f'[server_pregame] spectator from {spec.address} disconnected')
                 self.spectators.pop(ind)
                 continue
 
@@ -159,7 +176,7 @@ class ServerPregame:
                         self.player2_conn = self.spectators.pop(ind)
                         self.player2_conn.send(IdentifyResultPacket(2))
                     else:
-                        print('[server_pregame] spectator unsuccessfully identified')
+                        print(f'[server_pregame] spectator unsuccessfully identified with secret {packet.secret}')
                         spec.send(IdentifyResultPacket(None))
                 else:
                     print('[server_pregame] spectator sent bad packet')

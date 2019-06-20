@@ -201,7 +201,7 @@ class Updater:
 
             # move successful!
             result.append(updates.EntityPositionUpdate(
-                self.get_incr_upd_order(), ent.entity.iden, ent.entity.depth, False, newx, newy
+                self.get_incr_upd_order(), ent.entity.iden, ent.entity.depth, ent.entity.depth, newx, newy
             ))
             game_state.move_entity(ent.entity, ent.entity.depth, newx, newy)
             ent.real_move = RealMove.Move
@@ -278,7 +278,7 @@ class Updater:
 
         result.append(updates.EntityPositionUpdate(
             self.get_incr_upd_order(), ent.entity.iden,
-            new_depth, True, spawn_x, spawn_y
+            new_depth, old_depth, spawn_x, spawn_y
         ))
 
         game_state.move_entity(ent.entity, new_depth, spawn_x, spawn_y)

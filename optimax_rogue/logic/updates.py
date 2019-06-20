@@ -189,26 +189,33 @@ class EntityPositionUpdate(GameStateUpdate):
     Attributes:
         entity_iden (int): the identifier for the entity which moved
         depth (int): the new depth for the entity
-        depth_changed (bool): flag if the depth changed for the entity
+        old_depth (int): the old depth for the entity
         posx (int): the new x-coordinate for the entity
         posy (int): the new y-coordinate for the entity
     """
 
     def __init__(self, order: int, entity_iden: int, depth: int,
-                 depth_changed: bool, posx: int, posy: int) -> None:
+                 old_depth: int, posx: int, posy: int) -> None:
         super().__init__(order)
+        if not isinstance(old_depth, int):
+            raise ValueError(f'expected old_depth is int, got {old_depth} (type={type(old_depth)})')
         self.entity_iden = entity_iden
         self.depth = depth
-        self.depth_changed = depth_changed
+        self.old_depth = old_depth
         self.posx = posx
         self.posy = posy
+
+    @property
+    def depth_changed(self):
+        """True if the depth changed for the entity, False if it did not"""
+        return self.depth != self.old_depth
 
     def apply(self, game_state: GameState) -> None:
         entity = game_state.iden_lookup[self.entity_iden]
         game_state.move_entity(entity, self.depth, self.posx, self.posy)
 
     def relevant_for(self, game_state: GameState, depth: int) -> bool:
-        return depth in (game_state.iden_lookup[self.entity_iden].depth, self.depth)
+        return depth in (self.old_depth, self.depth)
 
 ser.register(EntityPositionUpdate)
 

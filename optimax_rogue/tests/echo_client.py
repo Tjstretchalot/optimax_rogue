@@ -6,6 +6,7 @@ import optimax_rogue.networking.server # pylint: disable=unused-import
 import optimax_rogue.networking.shared as nshared
 import optimax_rogue.networking.packets as packets
 import optimax_rogue.networking.serializer as ser
+import optimax_rogue.server.pregame as pregame
 import optimax_rogue.game.state as state
 import optimax_rogue.game.world as world
 import optimax_rogue.logic.worldgen as worldgen
@@ -29,10 +30,14 @@ def _create_packets():
 
     game_state = state.GameState(True, 1, 1, 2, world.World({0: dung}), [ent1, ent2])
     return [
+        pregame.IdentifyPacket('s1'.encode('ascii', 'strict')),
         ent1,
         ent2,
         dung,
-        game_state
+        game_state,
+        packets.SyncPacket(game_state, 1),
+        packets.SyncPacket(game_state, 2),
+        packets.SyncPacket(game_state, None)
     ]
 
 def main():

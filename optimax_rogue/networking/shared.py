@@ -130,6 +130,8 @@ class Connection:
         for _ in range(128): # avoid reading more than 512kb in one go
             block = self.connection.recv(BLOCK_SIZE)
             if not block:
+                self.connection.close()
+                self.connection = None
                 break
             self.curr_rec.append(block)
             if len(block) < BLOCK_SIZE:

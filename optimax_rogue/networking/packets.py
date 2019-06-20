@@ -55,6 +55,11 @@ class SyncPacket(Packet):
             prims['player_iden']
         )
 
+    def __eq__(self, other):
+        if not isinstance(other, SyncPacket):
+            return False
+        return self.game_state == other.game_state and self.player_iden == other.player_iden
+
 register_packet(SyncPacket)
 
 class MovePacket(Packet):
