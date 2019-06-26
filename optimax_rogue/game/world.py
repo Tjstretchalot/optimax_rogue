@@ -176,4 +176,7 @@ class World(ser.Serializable):
                 return False
         return True
 
+    def __repr__(self) -> str:
+        return 'World [dungeons=(' + ', '.join(str(dung.staircase()) for dung in self.dungeons.values()) + ')]'
+
 ser.register(World)

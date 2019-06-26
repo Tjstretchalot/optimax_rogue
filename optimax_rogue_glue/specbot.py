@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--py3', action='store_true', help='changes executable to python3')
     parser.add_argument('--dsunused', action='store_true',
                         help='use unused dungeon despawn strat instead of unreachable')
+    parser.add_argument('--maxticks', type=int, default=None, help='maximum ticks before tie')
     args = parser.parse_args()
 
     _run(args)
@@ -38,6 +39,9 @@ def _run(args):
          '--log', 'server_log.txt', '--tickrate', str(args.tickrate)]
     if args.dsunused:
         servargs.append('--dsunused')
+    if args.maxticks:
+        servargs.append('--maxticks')
+        servargs.append(str(args.maxticks))
     procs.append(subprocess.Popen(
         servargs,
         creationflags=create_flags

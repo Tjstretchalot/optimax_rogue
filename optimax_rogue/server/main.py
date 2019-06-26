@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--dsunused', action='store_true',
                         help=('If specified uses DungeonDespawningStrategy.Unused instead of '
                               + 'DungeonDespawningStrategy.Unreachable'))
+    parser.add_argument('-mt', '--maxticks', type=int, help='maximum number of ticks before a tie is declared', default=None)
     args = parser.parse_args()
 
     if args.log:
@@ -59,6 +60,9 @@ def _run(args, fh):
             else DungeonDespawningStrategy.Unreachable
         )
     }
+
+    if args.maxticks:
+        updater_kwargs['max_ticks'] = args.maxticks
 
     dgen = EmptyDungeonGenerator(args.width, args.height)
     ticker = Ticker(0.016)

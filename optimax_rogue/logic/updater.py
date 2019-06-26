@@ -58,11 +58,15 @@ class Updater:
 
         despawn_strat (DungeonDespawningStrategy): the technique used for despawning
             dungeons
+
+        max_ticks (int, optional): the maximum number of ticks before a tie is declared.
+            if None, then the server is never shutdown due to time
     """
-    def __init__(self, dgen: DungeonGenerator, despawn_strat: DungeonDespawningStrategy):
+    def __init__(self, dgen: DungeonGenerator, despawn_strat: DungeonDespawningStrategy, max_ticks: typing.Optional[int] = None):
         self.current_update_order = 0
         self.dgen = dgen
         self.despawn_strat = despawn_strat
+        self.max_ticks = max_ticks
 
     def get_incr_upd_order(self):
         """Gets and increments (as if in that order) the current update order"""
@@ -150,6 +154,10 @@ class Updater:
         if player2.health <= 0:
             print('[updater] player 2 died')
             return UpdateResult.Player1Win, result
+
+        if self.max_ticks and game_state.tick >= self.max_ticks:
+            print('[updater] ran out of time')
+            return UpdateResult.Tie, result
 
         return UpdateResult.InProgress, result
 

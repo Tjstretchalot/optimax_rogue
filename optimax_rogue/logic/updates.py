@@ -215,7 +215,7 @@ class EntityPositionUpdate(GameStateUpdate):
         game_state.move_entity(entity, self.depth, self.posx, self.posy)
 
     def relevant_for(self, game_state: GameState, depth: int) -> bool:
-        return depth in (self.old_depth, self.depth)
+        return depth == self.old_depth
 
 ser.register(EntityPositionUpdate)
 
