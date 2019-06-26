@@ -97,7 +97,7 @@ def _run(args, fh):
             ticker()
 
             dtime = time.time() - last_printed_ticks
-            if dtime > 60:
+            if dtime > 30:
                 num_ticks = server.game_state.tick - last_tick
                 ticks_per_second = num_ticks / dtime
                 print(f'[main] {ticks_per_second:.2f} ticks/second in last {dtime:.2f} seconds')
