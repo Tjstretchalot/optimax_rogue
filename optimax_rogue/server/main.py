@@ -5,6 +5,7 @@ import argparse
 import socket
 import sys
 import traceback
+import time
 from optimax_rogue.logic.worldgen import EmptyDungeonGenerator
 from optimax_rogue.server.pregame import ServerPregame, PregameUpdateResult
 from optimax_rogue.logic.updater import UpdateResult, DungeonDespawningStrategy
@@ -88,15 +89,26 @@ def _run(args, fh):
 
         server.outf = fh
         result = UpdateResult.InProgress
+        last_printed_ticks = time.time()
+        last_tick = 0
         while result == UpdateResult.InProgress:
             server.game_state.on_tick()
             result = server.update()
             ticker()
 
+            dtime = time.time() - last_printed_ticks
+            if dtime > 60:
+                num_ticks = server.game_state.tick - last_tick
+                ticks_per_second = num_ticks / dtime
+                print(f'[main] {ticks_per_second:.2f} ticks/second in last {dtime:.2f} seconds')
+                last_tick = server.game_state.tick
+                last_printed_ticks = time.time()
+
         while server.has_pending():
             server.update_queues()
             ticker()
 
+        listen_sock.close()
         print(f'[main] game ended with result {result}', file=fh)
 
 
