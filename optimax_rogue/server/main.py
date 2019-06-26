@@ -26,6 +26,7 @@ def main():
                         help=('If specified uses DungeonDespawningStrategy.Unused instead of '
                               + 'DungeonDespawningStrategy.Unreachable'))
     parser.add_argument('-mt', '--maxticks', type=int, help='maximum number of ticks before a tie is declared', default=None)
+    parser.add_argument('--aggressive', action='store_true', help='go as fast as possible regardless of cpu usage')
     args = parser.parse_args()
 
     if args.log:
@@ -65,7 +66,7 @@ def _run(args, fh):
         updater_kwargs['max_ticks'] = args.maxticks
 
     dgen = EmptyDungeonGenerator(args.width, args.height)
-    ticker = Ticker(0.016)
+    ticker = Ticker(0 if args.aggressive else 0.016)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listen_sock:
         listen_sock.bind((host, port))

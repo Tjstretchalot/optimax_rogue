@@ -28,6 +28,9 @@ def main():
                         help='if specified, rerout stdout and stderr to this file')
     parser.add_argument('-tr', '--tickrate', type=float, default=0.25,
                         help='the maximum number of seconds before we try to respond to the server')
+    parser.add_argument('--aggressive', action='store_true',
+                        help='try to go as fast as possible, regardless of cpu usage')
+
     args = parser.parse_args()
 
     if args.log:
@@ -53,7 +56,7 @@ def _run(args):
     conn = nshared.Connection(sock, args.ip)
 
     conn.send(pregame.IdentifyPacket(args.secret.encode('ASCII', 'strict')))
-    ticker = Ticker(0.02)
+    ticker = Ticker(0 if args.aggressive else 0.02)
     playid = None
     while True:
         ticker()
