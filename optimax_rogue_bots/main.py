@@ -30,6 +30,7 @@ def main():
                         help='the maximum number of seconds before we try to respond to the server')
     parser.add_argument('--aggressive', action='store_true',
                         help='try to go as fast as possible, regardless of cpu usage')
+    parser.add_argument('--settings', type=str, help='optional path to the settings file for the bot')
 
     args = parser.parse_args()
 
@@ -103,7 +104,11 @@ def _run(args):
         iden = game_state.player_1_iden if playid == 1 else game_state.player_2_iden
         return game_state.iden_lookup[iden]
 
-    bot: Bot = getattr(bot_mod, bot_spl[-1])(get_ent().iden)
+    constr = getattr(bot_mod, bot_spl[-1])
+    if not args.settings:
+        bot: Bot = constr(get_ent().iden)
+    else:
+        bot: Bot = constr(get_ent().iden, args.settings)
     need_move = True
     in_update = False
     ticker.secondary_target_secs = args.tickrate
