@@ -75,9 +75,9 @@ class Dungeon(ser.Serializable):
         arr = io.BytesIO()
         arr.write(int(self.tiles.shape[0]).to_bytes(4, byteorder='big', signed=False))
         arr.write(int(self.tiles.shape[1]).to_bytes(4, byteorder='big', signed=False))
-        for y in range(self.tiles.shape[1]):
-            for x in range(self.tiles.shape[0]):
-                arr.write(int(self.tiles[x, y]).to_bytes(1, byteorder='big', signed=False))
+
+        tmp = self.tiles.astype('uint8').reshape(self.tiles.shape[0] * self.tiles.shape[1])
+        arr.write(tmp.tobytes())
         return arr.getvalue()
 
     @classmethod
@@ -87,10 +87,8 @@ class Dungeon(ser.Serializable):
         arr.seek(0, 0)
         wid = int.from_bytes(arr.read(4), byteorder='big', signed=False)
         hei = int.from_bytes(arr.read(4), byteorder='big', signed=False)
-        tiles = np.zeros((wid, hei), dtype='int32')
-        for y in range(hei):
-            for x in range(wid):
-                tiles[x, y] = int.from_bytes(arr.read(1), byteorder='big', signed=False)
+        tmp = np.frombuffer(arr.read(wid*hei), dtype='uint8').reshape(wid, hei)
+        tiles = tmp.astype('int32')
         return cls(tiles)
 
     def __eq__(self, other):

@@ -3,6 +3,7 @@
 import typing
 import io
 import optimax_rogue.networking.serializer as ser
+
 from optimax_rogue.game.world import World
 from optimax_rogue.game.entities import Entity
 
@@ -98,7 +99,7 @@ class GameState(ser.Serializable):
         arr.write(self.player_1_iden.to_bytes(4, byteorder='big', signed=False))
         arr.write(self.player_2_iden.to_bytes(4, byteorder='big', signed=False))
 
-        wserd: bytes = ser.serialize(self.world)
+        wserd: bytes = self.world.to_prims()
         arr.write(len(wserd).to_bytes(8, byteorder='big', signed=False))
         arr.write(wserd)
 
@@ -119,7 +120,7 @@ class GameState(ser.Serializable):
         p1_iden = int.from_bytes(arr.read(4), 'big', signed=False)
         p2_iden = int.from_bytes(arr.read(4), 'big', signed=False)
         wlen = int.from_bytes(arr.read(8), 'big', signed=False)
-        world = ser.deserialize(arr.read(wlen))
+        world = World.from_prims(arr.read(wlen))
 
         nents = int.from_bytes(arr.read(4), 'big', signed=False)
         entities = []
