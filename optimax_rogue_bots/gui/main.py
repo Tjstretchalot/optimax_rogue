@@ -91,6 +91,7 @@ def _run(args):
                 entity_id = game_state.player_2_iden
             if not bot:
                 bot = bot_typ(entity_id)
+                bot.started(game_state)
                 ticker = Ticker(0.01, args.tickrate, bot.think)
             continue
 

@@ -127,4 +127,7 @@ class Entity(ser.Serializable):
 
         return True
 
+    def __repr__(self):
+        return f'[Entity @ ({self.x}, {self.y})]'
+
 ser.register(Entity)

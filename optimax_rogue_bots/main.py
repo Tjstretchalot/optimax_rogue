@@ -109,6 +109,8 @@ def _run(args):
         bot: Bot = constr(get_ent().iden)
     else:
         bot: Bot = constr(get_ent().iden, args.settings)
+
+    bot.started(game_state)
     need_move = True
     in_update = False
     ticker.secondary_target_secs = args.tickrate

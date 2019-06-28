@@ -18,6 +18,10 @@ class Bot:
         on other player moves"""
         pass
 
+    def started(self, game_state: state.GameState) -> None:
+        """Called when the bot first connects"""
+        pass
+
     def move(self, game_state: state.GameState) -> moves.Move:
         """Determines the move that the bot is going to make"""
         raise NotImplementedError
