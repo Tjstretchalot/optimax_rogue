@@ -146,18 +146,22 @@ class StateActionValuesResultPacket(packets.Packet):
     for the current state.
 
     Attributes:
-        values (dict[Move, float]): the value for the state-action corresponding with the current state
-            and the specified action.
+        tick (int): the tick this is for
+        values (dict[Move, float]): the value for the state-action corresponding with the current
+            state and the specified action.
     """
-    def __init__(self, values: typing.Dict[moves.Move, float]):
+    def __init__(self, values: typing.Dict[moves.Move, float], tick: int):
         self.values = values
+        self.tick = tick
 
     def to_prims(self) -> dict:
-        return {'values': dict((str(int(move)), value) for move, value in self.values.items())}
+        return {'tick': self.tick,
+                'values': dict((str(int(move)), value) for move, value in self.values.items())}
 
     @classmethod
     def from_prims(cls, prims) -> 'StateActionValuesResultPacket':
-        return cls(dict((moves.Move(int(move)), value) for move, value in prims['values']))
+        return cls(dict((moves.Move(int(move)), value) for move, value in prims['values']),
+                   prims['tick'])
 
 packets.register_packet(StateActionValuesResultPacket)
 
@@ -193,15 +197,17 @@ class MoveSuggestionResultPacket(packets.Packet):
 
     Attributes:
         move (Move): the move that is suggested
+        tick (int): the tick this suggestion is for
     """
-    def __init__(self, move: moves.Move) -> None:
+    def __init__(self, move: moves.Move, tick: int) -> None:
         self.move = move
+        self.tick = tick
 
     def to_prims(self):
-        return {'move': int(self.move)}
+        return {'move': int(self.move), 'tick': self.tick}
 
     @classmethod
     def from_prims(cls, prims) -> 'MoveSuggestionResultPacket':
-        return cls(moves.Move(prims['move']))
+        return cls(moves.Move(prims['move']), prims['tick'])
 
 packets.register_packet(MoveSuggestionResultPacket)

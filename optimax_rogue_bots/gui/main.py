@@ -136,7 +136,7 @@ def _run(args):
                 break
             pack: gpackets.MoveSuggestionRequestPacket
             move = bot.move(game_state)
-            conn.send(gpackets.MoveSuggestionResultPacket(move))
+            conn.send(gpackets.MoveSuggestionResultPacket(move, game_state.tick))
             continue
 
         if isinstance(pack, gpackets.StateActionValuesRequestPacket):
@@ -147,7 +147,7 @@ def _run(args):
             pack: gpackets.StateActionValuesRequestPacket
 
             values = dict((move, bot.evaluate(game_state, move)) for move in bot.supported_moves())
-            conn.send(gpackets.StateActionValuesResultPacket(values))
+            conn.send(gpackets.StateActionValuesResultPacket(values, game_state.tick))
             continue
 
         if isinstance(pack, gpackets.MoveSelectedPacket):
