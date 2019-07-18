@@ -6,7 +6,8 @@ import socket
 import sys
 import traceback
 import time
-from optimax_rogue.logic.worldgen import EmptyDungeonGenerator
+import importlib
+from optimax_rogue.logic.worldgen import EmptyDungeonGenerator, GameStartGenerator
 from optimax_rogue.server.pregame import ServerPregame, PregameUpdateResult
 from optimax_rogue.logic.updater import UpdateResult, DungeonDespawningStrategy
 from optimax_rogue.networking.server import Server
@@ -19,15 +20,23 @@ def main():
     parser.add_argument('secret2', metavar='S2', type=str, help='player 2 secret')
     parser.add_argument('-hn', '--host', '--hostname', type=str, help='specify the host to use')
     parser.add_argument('-p', '--port', type=int, help='specify port to listen on')
-    parser.add_argument('-l', '--log', type=str, help='if specified, rerout stdout and stderr to this file')
-    parser.add_argument('-t', '--tickrate', type=float, help='minimum seconds between ticks', default=1.0)
+    parser.add_argument('-l', '--log', type=str,
+                        help='if specified, rerout stdout and stderr to this file')
+    parser.add_argument('-t', '--tickrate', type=float, help='minimum seconds between ticks',
+                        default=1.0)
     parser.add_argument('--width', type=int, help='width of map', default=60)
     parser.add_argument('--height', type=int, help='height of map', default=10)
     parser.add_argument('--dsunused', action='store_true',
                         help=('If specified uses DungeonDespawningStrategy.Unused instead of '
                               + 'DungeonDespawningStrategy.Unreachable'))
-    parser.add_argument('-mt', '--maxticks', type=int, help='maximum number of ticks before a tie is declared', default=None)
-    parser.add_argument('--aggressive', action='store_true', help='go as fast as possible regardless of cpu usage')
+    parser.add_argument('-mt', '--maxticks', type=int,
+                        help='maximum number of ticks before a tie is declared', default=None)
+    parser.add_argument('--aggressive', action='store_true',
+                        help='go as fast as possible regardless of cpu usage')
+    parser.add_argument('--gamestart', type=str,
+                        default='optimax_rogue.logic.world.gen.TogetherGameStartGenerator',
+                        help='The path to the callable which returns an instance of the '
+                        + 'GameStartGenerator to use')
     args = parser.parse_args()
 
     if args.log:
@@ -66,6 +75,12 @@ def _run(args, fh):
     if args.maxticks:
         updater_kwargs['max_ticks'] = args.maxticks
 
+    igamestart_spl = args.gamestart.split('.')
+    igamestart_mod = importlib.import_module('.'.join(igamestart_spl[:-1]))
+    igamestart = getattr(igamestart_mod, igamestart_spl[-1])()
+    if not isinstance(igamestart, GameStartGenerator):
+        raise ValueError(f'gamestart {args.gamestart} corresponds with {igamestart} '
+                         + '(not a GameStartGenerator)')
     dgen = EmptyDungeonGenerator(args.width, args.height)
     ticker = Ticker(0 if args.aggressive else 0.016)
 
@@ -76,7 +91,8 @@ def _run(args, fh):
         host, port = listen_sock.getsockname()
         print(f'[main] bound on host {host}, port {port}', file=fh)
 
-        pregame = ServerPregame(listen_sock, secret1, secret2, dgen, tickrate, updater_kwargs)
+        pregame = ServerPregame(listen_sock, secret1, secret2, dgen, igamestart, tickrate,
+                                updater_kwargs)
         result = PregameUpdateResult.InProgress
         server = None
         while result == PregameUpdateResult.InProgress:

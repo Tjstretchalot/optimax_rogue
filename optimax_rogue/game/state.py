@@ -152,8 +152,10 @@ class GameState(ser.Serializable):
         return True
 
     def __repr__(self) -> str:
-        return (f'GameState [is_authoritative={repr(self.is_authoritative)}, tick={repr(self.tick)}, player_1_iden={repr(self.player_1_iden)}, '
-            + f'player_2_iden={repr(self.player_2_iden)}, world={repr(self.world)}, entities=[' + ', '.join(repr(ent) for ent in self.entities)
-            + ']]')
+        return (f'GameState [is_authoritative={repr(self.is_authoritative)}, '
+                + f'tick={repr(self.tick)}, player_1_iden={repr(self.player_1_iden)}, '
+                + f'player_2_iden={repr(self.player_2_iden)}, world={repr(self.world)}, '
+                + f'entities=[' + ', '.join(repr(ent) for ent in self.entities)
+                + ']]')
 
 ser.register(GameState)

@@ -14,7 +14,7 @@ import optimax_rogue.game.world as world
 import optimax_rogue.game.entities as entities
 from optimax_rogue.logic.updater import Updater
 from optimax_rogue.networking.shared import Connection
-from optimax_rogue.logic.worldgen import DungeonGenerator
+from optimax_rogue.logic.worldgen import DungeonGenerator, GameStartGenerator
 from optimax_rogue.networking.server import Server, PlayerConnection, SpectatorConnection
 
 class PregameUpdateResult(enum.IntEnum):
@@ -109,13 +109,14 @@ class ServerPregame:
         spectators [list[Connection]]: a list of people who want to spectate the game once
             it starts
 
-        dgen (DungeonGenerator): used to create the initial world and pass to the updater
+        dgen (DungeonGenerator): used by the updater to spawwn new dungeons
+        igamestate (GameStartGenerator): generates the initial game state
         tickrate (float): the tickrate, passed to the server
 
         updater_kwargs (dict): the additional kwargs to pass to the updater
     """
     def __init__(self, listen_sock: socket.socket, player1_secret: bytes, player2_secret: bytes,
-                 dgen: DungeonGenerator, tickrate: float, updater_kwargs: dict):
+                 dgen: DungeonGenerator, igamestate: GameStartGenerator, tickrate: float, updater_kwargs: dict):
         self.listen_sock = listen_sock
         self.player1_conn: Connection = None
         self.player2_conn: Connection = None
@@ -123,6 +124,7 @@ class ServerPregame:
         self.player2_secret = player2_secret
         self.spectators: typing.List[Connection] = []
         self.dgen = dgen
+        self.igamestate = igamestate
         self.tickrate = float(tickrate)
         self.updater_kwargs = updater_kwargs
 
@@ -203,19 +205,10 @@ class ServerPregame:
 
     def _start_game(self) -> Server:
         """Starts the game. Must have both player 1 and player 2 connected. Initializes
-        the first dungeon, spawns both players in it, sends a sync update to everyone,
-        then returns the Server that should manage this from now on"""
-
-        dung: world.Dungeon = self.dgen.spawn_dungeon(0)
-        p1x, p1y = dung.get_random_unblocked()
-        p2x, p2y = dung.get_random_unblocked()
-        while (p2x, p2y) == (p1x, p1y):
-            p2x, p2y = dung.get_random_unblocked()
-
-        ent1 = entities.Entity(1, 0, p1x, p1y, 10, 10, 2, 1, [], dict())
-        ent2 = entities.Entity(2, 0, p2x, p2y, 10, 10, 2, 1, [], dict())
-
-        game_state = state.GameState(True, 1, 1, 2, world.World({0: dung}), [ent1, ent2])
+        the game using the game start generator, syncs everyone, and returns the server"""
+        game_state = self.igamestate.setup_game()
+        ent1 = game_state.iden_lookup[1]
+        ent2 = game_state.iden_lookup[2]
 
         self.player1_conn.send(packets.SyncPacket(game_state.view_for(ent1), 1))
         self.player2_conn.send(packets.SyncPacket(game_state.view_for(ent2), 2))
