@@ -34,7 +34,7 @@ def main():
     parser.add_argument('--aggressive', action='store_true',
                         help='go as fast as possible regardless of cpu usage')
     parser.add_argument('--gamestart', type=str,
-                        default='optimax_rogue.logic.world.gen.TogetherGameStartGenerator',
+                        default='optimax_rogue.logic.worldgen.TogetherGameStartGenerator',
                         help='The path to the callable which returns an instance of the '
                         + 'GameStartGenerator to use')
     args = parser.parse_args()
